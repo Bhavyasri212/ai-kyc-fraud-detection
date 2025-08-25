@@ -29,36 +29,32 @@ def parse_text(record):
     for line in lines:
         lower_line = line.lower()
 
-        # Name
         if "name" in lower_line and not parsed["name"]:
             parsed["name"] = re.sub(r"(?i)name[:\-]?", "", line).strip()
 
-        # Aadhaar Number (12 digits)
         aadhaar_match = re.search(r"\b\d{4}\s?\d{4}\s?\d{4}\b", line)
         if aadhaar_match:
             parsed["aadhaar_number"] = aadhaar_match.group().replace(" ", "")
 
-        # Date of Birth
         dob_match = re.search(r"\b(dob|date of birth)[:\-]?\s*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b", line, re.I)
         if dob_match:
             parsed["dob"] = dob_match.group(2)
 
-        # Gender
         if "gender" in lower_line and not parsed["gender"]:
             parsed["gender"] = re.sub(r"(?i)gender[:\-]?", "", line).strip()
 
-        # Bill Date (utility bills)
+        
         date_match = re.search(r"\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b", line)
         if date_match and parsed["document_type"].lower() == "utility bill":
             parsed["bill_date"] = date_match.group(1)
 
-        # Address (capture from "House No" or similar until pincode)
+        
         if line.strip().lower().startswith("house no") or "address" in lower_line:
             capturing_address = True
 
         if capturing_address:
             address_parts.append(line.strip())
-            if re.search(r"\b\d{6}\b", line):  # stop at 6-digit pincode
+            if re.search(r"\b\d{6}\b", line):  
                 capturing_address = False
 
     if address_parts:
@@ -69,7 +65,7 @@ def parse_text(record):
 
 def main():
     if not os.path.exists(INPUT_FILE):
-        print(f"❌ Input file not found: {INPUT_FILE}")
+        print(f" Input file not found: {INPUT_FILE}")
         return
 
     with open(INPUT_FILE, "r", encoding="utf-8") as f:

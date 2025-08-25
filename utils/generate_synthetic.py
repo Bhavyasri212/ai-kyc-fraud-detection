@@ -17,7 +17,7 @@ from io import BytesIO
 from PIL import Image, ImageDraw
 
 def generate_photo(filename):
-    # Use randomuser.me realistic face photos
+
     gender = random.choice(["men", "women"])
     pic_id = random.randint(0, 99)
     avatar_url = f"https://randomuser.me/api/portraits/{gender}/{pic_id}.jpg"
@@ -25,10 +25,8 @@ def generate_photo(filename):
     response = requests.get(avatar_url)
     img = Image.open(BytesIO(response.content))
 
-    # Convert to RGB so it can be saved as JPEG
     img = img.convert("RGB")
 
-    # Resize to Aadhaar photo size
     img = img.resize((200, 250))
 
     photo_path = os.path.join(OUTPUT_PHOTOS, filename)
@@ -44,7 +42,6 @@ OUTPUT_UTILITY = "data/raw_docs/utility_samples"
 OUTPUT_PHOTOS = "data/raw_docs/photos"
 os.makedirs(OUTPUT_PHOTOS, exist_ok=True)
 
-# Load fonts (adjust if not available)
 try:
     FONT_BOLD = ImageFont.truetype("C:/Windows/Fonts/arialbd.ttf", 32)
     FONT = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 28)
@@ -55,20 +52,16 @@ except:
     FONT = ImageFont.load_default()
     SMALL_FONT = ImageFont.load_default()
 
-
-# 🔹 Aadhaar Template
 def generate_aadhaar_template(name, dob, gender, aadhaar_number, address, mobile, enroll_no, output_path):
     img = Image.new("RGB", (1000, 1400), "white")
     draw = ImageDraw.Draw(img)
 
-    # --- HEADER ---
     draw.rectangle([0, 0, 1000, 70], fill=(255, 153, 51))   # orange band
     draw.text((380, 15), "Government of India", font=FONT_BOLD, fill="black")
 
     draw.rectangle([0, 70, 1000, 120], fill=(19, 136, 8))   # green band
     draw.text((250, 80), "Unique Identification Authority of India", font=FONT_BOLD, fill="white")
 
-    # --- ENROLLMENT DETAILS ---
     y = 150
     draw.text((280, y), f"Enrollment No.: {enroll_no}", font=FONT_BOLD, fill="black"); y += 50
     draw.text((100, y), "To", font=FONT, fill="black"); y += 40
@@ -78,9 +71,6 @@ def generate_aadhaar_template(name, dob, gender, aadhaar_number, address, mobile
         y += 30
     draw.text((100, y), f"Mobile: {mobile}", font=SMALL_FONT, fill="black"); y += 50
 
-    # --- BARCODE + QR CODE ---
-
-    # Ensure folder exists
     os.makedirs("data/barcode", exist_ok=True)
 
     barcode_path = os.path.join("data/raw_docs/barcode", "temp_barcode")
@@ -88,16 +78,12 @@ def generate_aadhaar_template(name, dob, gender, aadhaar_number, address, mobile
     barcode_img = Image.open(barcode_file).resize((350, 80))
     img.paste(barcode_img, (50, y))
 
-    
-
-    # Generate QR code image
     qr = qrcode.make(aadhaar_number)
     qr = qr.resize((180, 180))
     img.paste(qr, (750, y-20))
 
     y += 150
 
-    # --- AADHAAR NUMBER SECTION ---
     draw.text((300, y+20), "Your Aadhaar No.:", font=FONT, fill="black")
     draw.text((280, y+70), aadhaar_number, font=LARGE_BOLD, fill="black")
 
@@ -105,7 +91,6 @@ def generate_aadhaar_template(name, dob, gender, aadhaar_number, address, mobile
     draw.line([50, y, 950, y], fill="black", width=2)
     y += 40
 
-    # --- CARD SECTION (BOTTOM HALF) ---
     photo_filename = f"temp_photo_{random.randint(1000,9999)}.jpg"
     photo_path = generate_photo(photo_filename)   # returns full path
     photo = Image.open(photo_path)
@@ -123,17 +108,13 @@ def generate_aadhaar_template(name, dob, gender, aadhaar_number, address, mobile
 
     img.save(output_path)
 
-
-# 🔹 Utility Bill Template
 def generate_utility_template(name, address, account_number, bill_number, bill_date, due_date, amount, output_path):
     img = Image.new("RGB", (1000, 700), "white")
     draw = ImageDraw.Draw(img)
 
-    # Header
     draw.rectangle([0, 0, 1000, 100], fill=(200, 200, 255))
     draw.text((350, 30), "Electricity Supply Board", font=FONT_BOLD, fill="black")
 
-    # Customer details
     y = 130
     draw.text((50, y), f"Name: {name}", font=FONT, fill="black"); y += 40
     draw.text((50, y), "Address:", font=FONT, fill="black"); y += 40
@@ -141,7 +122,6 @@ def generate_utility_template(name, address, account_number, bill_number, bill_d
         draw.text((100, y), line, font=SMALL_FONT, fill="black")
         y += 30
 
-    # Bill details section
     y += 20
     draw.line([50, y, 950, y], fill="black", width=2)
     y += 20
@@ -153,8 +133,6 @@ def generate_utility_template(name, address, account_number, bill_number, bill_d
 
     img.save(output_path)
 
-
-# 🔹 Generate person details
 def generate_person(idx):
     name = fake.name()
     dob = fake.date_of_birth(minimum_age=18, maximum_age=60).strftime("%d-%m-%Y")
@@ -171,22 +149,18 @@ def generate_person(idx):
     pincode = fake.postcode()
     address = f"{house_no}, {road_no}, {colony}, {city}, {state} - {pincode}"
 
-    # Aadhaar-specific fields
     mobile = fake.phone_number()
     enroll_no = f"{random.randint(1000,9999)}/{random.randint(100000,999999)}/{random.randint(10000,99999)}"
 
-    # Utility-specific fields
     account_number = str(random.randint(10000000, 99999999))
     bill_number = str(random.randint(500000, 999999))
     bill_date = fake.date_this_year().strftime("%d-%m-%Y")
     due_date = fake.date_this_year().strftime("%d-%m-%Y")
     amount = random.randint(500, 5000)
 
-    # Save Aadhaar
     aadhaar_path = os.path.join(OUTPUT_AADHAAR, f"person_{idx}_aadhaar.jpg")
     generate_aadhaar_template(name, dob, gender, aadhaar_number, address, mobile, enroll_no, aadhaar_path)
 
-    # Save Utility Bill
     utility_path = os.path.join(OUTPUT_UTILITY, f"person_{idx}_utility.jpg")
     generate_utility_template(name, address, account_number, bill_number, bill_date, due_date, amount, utility_path)
 
@@ -215,7 +189,7 @@ def main():
     os.makedirs(OUTPUT_UTILITY, exist_ok=True)
 
     persons = []
-    for i in range(1, 21):  # Generate 20 persons
+    for i in range(1, 21): 
         person = generate_person(i)
         persons.append(person)
 

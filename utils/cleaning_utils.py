@@ -1,4 +1,3 @@
-# utils/cleaning_utils.py
 import json
 import csv
 import os
@@ -16,7 +15,7 @@ def merge_records(records):
     })
     
     for rec in records:
-        key = (rec["name"], rec["address"])  # group by person
+        key = (rec["name"], rec["address"]) 
         person = merged[key]
         person["name"] = rec["name"]
         person["address"] = rec["address"]
@@ -43,7 +42,7 @@ def save_csv(dataset, output_file):
         writer.writeheader()
         for row in dataset:
             row_copy = row.copy()
-            # Ensure Aadhaar numbers are strings (avoid Excel scientific notation)
+  
             if row_copy.get("aadhaar_number"):
                 row_copy["aadhaar_number"] = "\t" + str(row_copy["aadhaar_number"])
             writer.writerow(row_copy)
@@ -60,7 +59,6 @@ def main():
     records = load_ocr_results(input_file)
     merged_data = merge_records(records)
 
-    # Drop records with missing Aadhaar numbers
     cleaned_data = [rec for rec in merged_data if rec.get("aadhaar_number", "").strip() != ""]
 
     save_json(cleaned_data, output_json)
