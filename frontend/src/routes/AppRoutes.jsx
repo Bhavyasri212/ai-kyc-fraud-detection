@@ -7,6 +7,9 @@ import SignupPage from "../pages/SignupPage";
 import UploadPage from "../pages/UploadPage";
 import LoadingPage from "../pages/LoadingPage";
 import ResultPage from "../pages/ResultPage";
+import ForgotPasswordPage from "../pages/ForgotPasswordPage";
+
+// Inside your router config:
 
 function RouterWrapper() {
   const [aadhaarData, setAadhaarData] = useState(null);
@@ -22,6 +25,7 @@ function RouterWrapper() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />;
       <Route
         path="/upload"
         element={<UploadPage onExtract={handleExtract} />}

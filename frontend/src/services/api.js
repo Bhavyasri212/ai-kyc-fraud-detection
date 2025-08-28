@@ -59,6 +59,18 @@ const api = {
     localStorage.removeItem("userId");
     localStorage.removeItem("email");
   },
+  forgotPassword: async (email) => {
+    // Example POST to your backend endpoint for forgot password
+    const response = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to send reset email");
+    }
+    return response.json();
+  },
 };
 
 export default api;
