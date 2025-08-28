@@ -26,13 +26,13 @@ export default function UploadPage({ onExtract }) {
   const navigate = useNavigate();
 
   const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
-  const maxSize = 5 * 1024 * 1024; // 5MB for banking documents
+  const maxSize = 2 * 1024 * 1024; // 5MB for banking documents
 
   const supportedDocuments = [
     { name: "Aadhaar Card", formats: "JPEG, PNG, PDF" },
     { name: "PAN Card", formats: "JPEG, PNG, PDF" },
-    { name: "Driving License", formats: "JPEG, PNG, PDF" },
-    { name: "Passport", formats: "JPEG, PNG, PDF" },
+    // { name: "Driving License", formats: "JPEG, PNG, PDF" },
+    // { name: "Passport", formats: "JPEG, PNG, PDF" },
   ];
 
   const securityFeatures = [
@@ -52,7 +52,7 @@ export default function UploadPage({ onExtract }) {
     if (!f) return "No file selected.";
     if (!allowedTypes.includes(f.type))
       return "Only JPEG, PNG, or PDF files are supported.";
-    if (f.size > maxSize) return "File size must be ≤ 5MB.";
+    if (f.size > maxSize) return "File size must be ≤ 2MB.";
     return "";
   };
 

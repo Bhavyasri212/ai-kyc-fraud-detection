@@ -2,12 +2,13 @@ import { motion } from "framer-motion";
 import AnimatedBackground from "../components/AnimatedBackground";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
+import jsPDF from "jspdf";
+
 import {
   CheckCircle,
   AlertTriangle,
   Shield,
   Download,
-  Eye,
   FileText,
   Calendar,
   MapPin,
@@ -22,6 +23,30 @@ function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+function handleDownload() {
+  const doc = new jsPDF();
+
+  doc.setFontSize(20);
+  doc.text("Verification Report", 20, 20);
+
+  doc.setFontSize(12);
+  doc.text(`Name: ${verificationData.name}`, 20, 40);
+  doc.text(`Date of Birth: ${verificationData.dob}`, 20, 50);
+  doc.text(`Gender: ${verificationData.gender}`, 20, 60);
+  doc.text(`Aadhaar Number: ${verificationData.aadhaar}`, 20, 70);
+  doc.text(`Address: ${verificationData.address}`, 20, 80);
+  doc.text(`Document Type: ${verificationData.documentType}`, 20, 90);
+  doc.text(`Confidence Score: ${verificationData.confidence}%`, 20, 100);
+  doc.text(`Fraud Risk: ${verificationData.fraudScore}%`, 20, 110);
+  doc.text(`Status: ${capitalize(verificationData.status)}`, 20, 120);
+  doc.text(
+    `Processed At: ${new Date(verificationData.processedAt).toLocaleString()}`,
+    20,
+    130
+  );
+
+  doc.save("verification_report.pdf");
+}
 export default function ResultPage({ data, onBack }) {
   const navigate = useNavigate();
 
@@ -30,15 +55,25 @@ export default function ResultPage({ data, onBack }) {
     name: "Rajesh Kumar Sharma",
     dob: "15/08/1985",
     gender: "Male",
-    aadhaar: "1234 5678 9012",
+    aadhaar: "123456789012",
+    pan: "N/A",
     address: "123 MG Road, Bangalore, Karnataka 560001",
-    documentType: "Aadhaar Card",
     confidence: 98.5,
     fraudScore: 2.1,
     status: "verified",
     processedAt: new Date().toISOString(),
     rawText: "Sample OCR extracted text from the document...",
   };
+
+  const isAadhaar =
+    verificationData?.aadhaar && verificationData.aadhaar !== "N/A";
+  const isPan = verificationData?.pan && verificationData.pan !== "N/A";
+
+  const documentType = isAadhaar
+    ? "Aadhaar Card"
+    : isPan
+    ? "PAN Card"
+    : "Unknown";
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -72,9 +107,17 @@ export default function ResultPage({ data, onBack }) {
   const detailItems = [
     { icon: User, label: "Full Name", value: verificationData.name },
     { icon: Calendar, label: "Date of Birth", value: verificationData.dob },
-    { icon: User, label: "Gender", value: verificationData.gender },
-    { icon: Hash, label: "Aadhaar Number", value: verificationData.aadhaar },
-    { icon: MapPin, label: "Address", value: verificationData.address },
+    {
+      icon: Hash,
+      label: isAadhaar ? "Aadhaar Number" : "PAN Number",
+      value: isAadhaar ? verificationData.aadhaar : verificationData.pan,
+    },
+    ...(isAadhaar
+      ? [
+          { icon: User, label: "Gender", value: verificationData.gender },
+          { icon: MapPin, label: "Address", value: verificationData.address },
+        ]
+      : []),
   ];
 
   return (
@@ -147,7 +190,7 @@ export default function ResultPage({ data, onBack }) {
 
                   <div className="text-center p-4 bg-purple-50 rounded-xl border border-purple-200">
                     <div className="text-2xl font-bold text-purple-600 mb-1">
-                      {verificationData.documentType}
+                      {documentType}
                     </div>
                     <div className="text-sm text-purple-700 font-medium">
                       Document Type
@@ -214,7 +257,10 @@ export default function ResultPage({ data, onBack }) {
                   Process Another Document
                 </button>
 
-                <button className="flex-1 flex items-center justify-center px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-semibold hover:border-slate-400 hover:bg-slate-50 transition-all duration-200">
+                <button
+                  onClick={handleDownload}
+                  className="flex-1 flex items-center justify-center px-6 py-3 border-2 border-slate-300 text-slate-700 rounded-xl font-semibold hover:border-slate-400 hover:bg-slate-50 transition-all duration-200"
+                >
                   <Download className="w-5 h-5 mr-2" />
                   Download Report
                 </button>
