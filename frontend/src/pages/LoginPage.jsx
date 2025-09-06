@@ -26,9 +26,18 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
     try {
-      await api.login(form.email, form.password);
-      navigate("/upload");
+      const res = await api.login(form.email, form.password);
+
+      if (res.token) {
+        localStorage.setItem("token", res.token);
+        localStorage.setItem("email", form.email);
+        console.log("Stored token and email in localStorage");
+        navigate("/upload");
+      } else {
+        setError("Invalid credentials. Please try again.");
+      }
     } catch (err) {
       setError("Invalid credentials. Please check your email and password.");
     } finally {

@@ -1,0 +1,7 @@
+react
+react-dom
+react-router-dom
+axios
+framer-motion
+lucide-react
+tailwindcss

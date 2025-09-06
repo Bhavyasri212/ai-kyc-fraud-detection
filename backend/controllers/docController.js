@@ -202,6 +202,7 @@ const extractKYCDetails = (rawText) => {
   // Return extracted fields (include pan for pan card)
   return { name, dob, gender, aadhaar, pan, address };
 };
+export { extractKYCDetails };
 
 // -------------------- Upload and Process Doc --------------------
 export const uploadDoc = async (req, res) => {

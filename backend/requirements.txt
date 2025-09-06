@@ -1,0 +1,8 @@
+express
+mongoose
+dotenv
+multer
+tesseract.js
+cors
+jsonwebtoken
+bcryptjs

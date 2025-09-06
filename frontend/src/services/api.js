@@ -10,13 +10,10 @@ const api = {
   // LOGIN
   login: async (email, password) => {
     const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
-
     if (res.data.token) {
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("userId", res.data.userId);
-      localStorage.setItem("email", res.data.email);
     }
-
     return res.data;
   },
 
@@ -71,6 +68,29 @@ const api = {
     }
     return response.json();
   },
-};
 
+  verifyDoc: async (formData) => {
+    const token = getToken();
+    console.log("Token used for verifyDoc:", token);
+    const res = await axios.post(
+      `${API_BASE}/verification/verify-doc`,
+      formData,
+      {
+        headers: {
+          // Don't set Content-Type manually; axios will set it correctly for FormData
+          Authorization: `Bearer ${getToken()}`,
+        },
+      }
+    );
+    return res.data;
+  },
+
+  getFraudScore: async ({ documentType, documentData }) => {
+    const res = await axios.post(`${API_BASE}/verification/fraud-score`, {
+      documentType,
+      documentData,
+    });
+    return res.data;
+  },
+};
 export default api;

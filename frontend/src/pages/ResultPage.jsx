@@ -166,69 +166,20 @@ export default function ResultPage({ data, onBack }) {
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/5 to-amber-400/5 rounded-3xl" />
 
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-8">
-                    <h2 className="text-2xl font-bold text-white">
-                      Verification Status
-                    </h2>
-                    <motion.div
-                      className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium border backdrop-blur-sm ${getStatusColor(
-                        verificationData.status
-                      )}`}
-                      whileHover={{ scale: 1.05 }}
-                    >
-                      <StatusIcon className="w-4 h-4 mr-2" />
-                      {capitalize(verificationData.status)}
-                    </motion.div>
+                <motion.div
+                  className="text-center p-6 bg-orange-500/10 backdrop-blur-sm rounded-2xl border border-orange-500/30"
+                  whileHover={{ scale: 1.02, y: -5 }}
+                >
+                  <div className="flex items-center justify-center mb-3">
+                    <FileText className="w-6 h-6 text-orange-400" />
                   </div>
-
-                  <div className="grid md:grid-cols-3 gap-6">
-                    <motion.div
-                      className="text-center p-6 bg-amber-500/10 backdrop-blur-sm rounded-2xl border border-amber-500/30"
-                      whileHover={{ scale: 1.02, y: -5 }}
-                    >
-                      <div className="flex items-center justify-center mb-3">
-                        <Star className="w-6 h-6 text-amber-400" />
-                      </div>
-                      <div className="text-3xl font-bold text-amber-400 mb-2">
-                        {verificationData.confidence}%
-                      </div>
-                      <div className="text-sm text-amber-300 font-medium">
-                        Confidence Score
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      className="text-center p-6 bg-yellow-500/10 backdrop-blur-sm rounded-2xl border border-yellow-500/30"
-                      whileHover={{ scale: 1.02, y: -5 }}
-                    >
-                      <div className="flex items-center justify-center mb-3">
-                        <Shield className="w-6 h-6 text-yellow-400" />
-                      </div>
-                      <div className="text-3xl font-bold text-yellow-400 mb-2">
-                        {verificationData.fraudScore}%
-                      </div>
-                      <div className="text-sm text-yellow-300 font-medium">
-                        Fraud Risk
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      className="text-center p-6 bg-orange-500/10 backdrop-blur-sm rounded-2xl border border-orange-500/30"
-                      whileHover={{ scale: 1.02, y: -5 }}
-                    >
-                      <div className="flex items-center justify-center mb-3">
-                        <FileText className="w-6 h-6 text-orange-400" />
-                      </div>
-                      <div className="text-2xl font-bold text-orange-400 mb-2">
-                        {documentType}
-                      </div>
-                      <div className="text-sm text-orange-300 font-medium">
-                        Document Type
-                      </div>
-                    </motion.div>
+                  <div className="text-2xl font-bold text-orange-400 mb-2">
+                    {documentType}
                   </div>
-                </div>
+                  <div className="text-sm text-orange-300 font-medium">
+                    Document Type
+                  </div>
+                </motion.div>
               </motion.div>
 
               {/* Extracted Information */}
