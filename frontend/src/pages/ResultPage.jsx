@@ -3,6 +3,7 @@ import AnimatedBackground from "../components/AnimatedBackground";
 import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
+import { useLocation } from "react-router-dom";
 
 import {
   CheckCircle,
@@ -28,21 +29,24 @@ function capitalize(str) {
 
 export default function ResultPage({ data, onBack }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Use provided data or fallback mock
-  const verificationData = data || {
-    name: "Rajesh Kumar Sharma",
-    dob: "15/08/1985",
-    gender: "Male",
-    aadhaar: "123456789012",
-    pan: "N/A",
-    address: "123 MG Road, Bangalore, Karnataka 560001",
-    confidence: 98.5,
-    fraudScore: 2.1,
-    status: "verified",
-    processedAt: new Date().toISOString(),
-    rawText: "Sample OCR extracted text from the document...",
-  };
+  // Use location state extractedData if no props data passed
+  const extractedData = location.state?.extractedData;
+  const verificationData = data ||
+    extractedData || {
+      name: "Rajesh Kumar Sharma",
+      dob: "15/08/1985",
+      gender: "Male",
+      aadhaar: "123456789012",
+      pan: "N/A",
+      address: "123 MG Road, Bangalore, Karnataka 560001",
+      confidence: 98.5,
+      fraudScore: 2.1,
+      status: "verified",
+      processedAt: new Date().toISOString(),
+      rawText: "Sample OCR extracted text from the document...",
+    };
 
   const handleDownload = () => {
     const doc = new jsPDF();

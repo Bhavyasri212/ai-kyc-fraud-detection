@@ -87,10 +87,11 @@ export default function UploadPage({ onExtract }) {
 
     try {
       const data = await api.uploadDocument(file);
-      onExtract?.(data);
-      navigate("/results");
+      // Pass extracted data as state while navigating to /results
+      navigate("/results", { state: { extractedData: data } });
     } catch (err) {
       console.error(err);
+      toast.error("Failed to extract document data.");
       navigate("/upload");
     } finally {
       setProcessing(false);
