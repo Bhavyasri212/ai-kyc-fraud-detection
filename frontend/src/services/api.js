@@ -1,95 +1,184 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:5000/api"; // backend base
+const API_BASE = "http://localhost:5000/api"; // Backend base URL
 
-// read token if you’re storing it in localStorage after login
+// Read token from localStorage
 const getToken = () => localStorage.getItem("token") || "";
 
-const api = {
-  // LOGIN
-  login: async (email, password) => {
-    const res = await axios.post(`${API_BASE}/auth/login`, { email, password });
-    if (res.data.token) {
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("userId", res.data.userId);
+// Create an axios instance with base URL
+const axiosInstance = axios.create({
+  baseURL: API_BASE,
+});
+
+// Add a request interceptor to add Authorization header if token exists
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-    return res.data;
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+const api = {
+  /**
+   * Login user
+   * @param {string} email
+   * @param {string} password
+   * @returns {Promise<Object>} response data including token and userId
+   */
+  login: async (email, password) => {
+    try {
+      const res = await axiosInstance.post("/auth/login", { email, password });
+      if (res.data.token) {
+        localStorage.setItem("token", res.data.token);
+        localStorage.setItem("userId", res.data.userId);
+        localStorage.setItem("email", email);
+      }
+      return res.data;
+    } catch (error) {
+      console.error("Login failed:", error.response?.data || error.message);
+      throw error;
+    }
   },
 
-  // SIGNUP
+  /**
+   * Signup new user
+   * @param {string} name
+   * @param {string} email
+   * @param {string} password
+   * @returns {Promise<Object>} response data
+   */
   signup: async (name, email, password) => {
-    const res = await axios.post(`${API_BASE}/auth/signup`, {
-      name,
-      email,
-      password,
-    });
-    return res.data;
+    try {
+      const res = await axiosInstance.post("/auth/signup", {
+        name,
+        email,
+        password,
+      });
+      return res.data;
+    } catch (error) {
+      console.error("Signup failed:", error.response?.data || error.message);
+      throw error;
+    }
   },
 
-  // UPLOAD + OCR
+  /**
+   * Upload document for OCR
+   * @param {File} file - file to upload
+   * @returns {Promise<Object>} extracted data from OCR
+   */
   uploadDocument: async (file) => {
-    const formData = new FormData();
-    formData.append("document", file);
+    try {
+      const formData = new FormData();
+      formData.append("document", file);
 
-    const res = await axios.post(`${API_BASE}/docs/upload-doc`, formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        Authorization: `Bearer ${getToken()}`,
-      },
-    });
+      const res = await axiosInstance.post("/docs/upload-doc", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
-    return res.data; // { message, extracted: { aadhaarNumber, panNumber, dob, gender, rawText } }
+      return res.data; // expected { message, extracted: {...} }
+    } catch (error) {
+      console.error(
+        "Document upload failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
   },
 
-  // FETCH USER DOCS (previous uploads)
+  /**
+   * Get previously uploaded user documents
+   * @returns {Promise<Object[]>} list of documents
+   */
   getUserDocs: async () => {
-    const res = await axios.get(`${API_BASE}/docs/get-user-docs`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-    return res.data;
+    try {
+      const res = await axiosInstance.get("/docs/get-user-docs");
+      return res.data;
+    } catch (error) {
+      console.error(
+        "Fetching user docs failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
   },
 
-  // LOGOUT
+  /**
+   * Logout user by clearing localStorage tokens
+   */
   logout: () => {
     localStorage.removeItem("token");
     localStorage.removeItem("userId");
     localStorage.removeItem("email");
   },
+
+  /**
+   * Send forgot password email
+   * @param {string} email
+   * @returns {Promise<Object>} response data
+   */
   forgotPassword: async (email) => {
-    // Example POST to your backend endpoint for forgot password
-    const response = await fetch("/api/auth/forgot-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    });
-    if (!response.ok) {
+    try {
+      const res = await axiosInstance.post("/auth/forgot-password", { email });
+      return res.data;
+    } catch (error) {
+      console.error(
+        "Forgot password request failed:",
+        error.response?.data || error.message
+      );
       throw new Error("Failed to send reset email");
     }
-    return response.json();
   },
 
+  /**
+   * Verify a document
+   * @param {FormData} formData
+   * @returns {Promise<Object>} verification result
+   */
   verifyDoc: async (formData) => {
-    const token = getToken();
-    console.log("Token used for verifyDoc:", token);
-    const res = await axios.post(
-      `${API_BASE}/verification/verify-doc`,
-      formData,
-      {
-        headers: {
-          // Don't set Content-Type manually; axios will set it correctly for FormData
-          Authorization: `Bearer ${getToken()}`,
-        },
-      }
-    );
-    return res.data;
+    try {
+      // Note: Don't set Content-Type manually for FormData
+      const res = await axiosInstance.post(
+        "/verification/verify-doc",
+        formData
+      );
+      return res.data;
+    } catch (error) {
+      console.error(
+        "Document verification failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
   },
 
+  /**
+   * Get fraud score for a document
+   * @param {Object} params - contains documentType and documentData
+   * @param {string} params.documentType
+   * @param {Object} params.documentData
+   * @returns {Promise<Object>} fraud score data
+   */
   getFraudScore: async ({ documentType, documentData }) => {
-    const res = await axios.post(`${API_BASE}/verification/fraud-score`, {
-      documentType,
-      documentData,
-    });
-    return res.data;
+    try {
+      const res = await axiosInstance.post("/verification/fraud-score", {
+        documentType,
+        documentData,
+      });
+      return res.data;
+    } catch (error) {
+      console.error(
+        "Fetching fraud score failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
   },
 };
+
 export default api;
