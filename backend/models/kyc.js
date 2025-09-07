@@ -49,6 +49,11 @@ const KYCRequestSchema = new mongoose.Schema({
     address: Number,
   },
   fraudScore: Number,
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
 });
 
 const KYCRequest = mongoose.model("KYCRequest", KYCRequestSchema);

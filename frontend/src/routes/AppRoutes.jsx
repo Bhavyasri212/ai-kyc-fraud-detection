@@ -12,7 +12,7 @@ import ProfilePage from "../pages/ProfilePage";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PrivateRoute from "../components/PrivateRoute";
-// import AdminPanel from "../pages/AdminPanel";
+import AdminPanel from "../pages/AdminPanel";
 function RouterWrapper() {
   const [aadhaarData, setAadhaarData] = useState(null);
   const navigate = useNavigate();
@@ -36,7 +36,7 @@ function RouterWrapper() {
         </Route>
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/loading" element={<LoadingPage />} />
-        {/* <Route path="/admin" element={<AdminPanel />} /> */}
+        <Route path="/admin" element={<AdminPanel />} />
         <Route
           path="/results"
           element={
