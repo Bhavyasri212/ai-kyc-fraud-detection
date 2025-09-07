@@ -147,7 +147,8 @@ export default function UploadPage({ onExtract }) {
     };
 
     try {
-      const res = await fetch("/api/kyc/submit", {
+      const API_BASE = "http://localhost:5000/api"; // Backend base URL
+      const res = await fetch(`${API_BASE}/kyc/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(kycData),
