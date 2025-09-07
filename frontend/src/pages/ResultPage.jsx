@@ -33,13 +33,52 @@ export default function ResultPage({ data, onBack }) {
 
   // Use location state extractedData if no props data passed
   const extractedData = location.state?.extractedData;
-  const verificationData = data ||
-    extractedData || {
+  let rawData = data || extractedData;
+
+  let verificationData;
+  let documentType;
+
+  // Merge Aadhaar and PAN data (Aadhaar is primary)
+  if (
+    (rawData?.aadhaar &&
+      rawData?.aadhaar.aadhaar &&
+      rawData?.aadhaar.aadhaar !== "N/A") ||
+    (rawData?.pan && rawData?.pan.pan && rawData?.pan.pan !== "N/A")
+  ) {
+    const aadhaar = rawData?.aadhaar || {};
+    const pan = rawData?.pan || {};
+
+    verificationData = {
+      name: aadhaar.name || pan.name || "N/A",
+      dob: aadhaar.dob && aadhaar.dob !== "N/A" ? aadhaar.dob : "N/A",
+      gender:
+        aadhaar.gender && aadhaar.gender !== "N/A" ? aadhaar.gender : "N/A",
+      address:
+        aadhaar.address && aadhaar.address !== "N/A" ? aadhaar.address : "N/A",
+      aadhaar:
+        aadhaar.aadhaar && aadhaar.aadhaar !== "N/A" ? aadhaar.aadhaar : "N/A",
+      pan: pan.pan && pan.pan !== "N/A" ? pan.pan : "N/A",
+      confidence: Math.max(aadhaar.confidence || 0, pan.confidence || 0),
+      fraudScore: Math.max(aadhaar.fraudScore || 0, pan.fraudScore || 0),
+      status: aadhaar.status || pan.status || "pending",
+      processedAt:
+        aadhaar.processedAt || pan.processedAt || new Date().toISOString(),
+      rawText: `${aadhaar.rawText || ""}\n${pan.rawText || ""}`,
+    };
+
+    if (rawData?.aadhaar?.aadhaar && rawData?.aadhaar?.aadhaar !== "N/A") {
+      documentType = "Aadhaar + PAN";
+    } else {
+      documentType = "PAN Card";
+    }
+  } else {
+    // fallback
+    verificationData = {
       name: "Rajesh Kumar Sharma",
       dob: "15/08/1985",
       gender: "Male",
       aadhaar: "123456789012",
-      pan: "N/A",
+      pan: "ABCDE1234F",
       address: "123 MG Road, Bangalore, Karnataka 560001",
       confidence: 98.5,
       fraudScore: 2.1,
@@ -47,6 +86,11 @@ export default function ResultPage({ data, onBack }) {
       processedAt: new Date().toISOString(),
       rawText: "Sample OCR extracted text from the document...",
     };
+    documentType = "Fallback Data";
+  }
+
+  const isAadhaar = documentType === "Aadhaar Card";
+  const isPan = documentType === "PAN Card";
 
   const handleDownload = () => {
     const doc = new jsPDF();
@@ -74,16 +118,6 @@ export default function ResultPage({ data, onBack }) {
 
     doc.save("securekyc_verification_report.pdf");
   };
-
-  const isAadhaar =
-    verificationData?.aadhaar && verificationData.aadhaar !== "N/A";
-  const isPan = verificationData?.pan && verificationData.pan !== "N/A";
-
-  const documentType = isAadhaar
-    ? "Aadhaar Card"
-    : isPan
-    ? "PAN Card"
-    : "Unknown";
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -117,18 +151,24 @@ export default function ResultPage({ data, onBack }) {
   const detailItems = [
     { icon: User, label: "Full Name", value: verificationData.name },
     { icon: Calendar, label: "Date of Birth", value: verificationData.dob },
-    {
-      icon: Hash,
-      label: isAadhaar ? "Aadhaar Number" : "PAN Number",
-      value: isAadhaar ? verificationData.aadhaar : verificationData.pan,
-    },
-    ...(isAadhaar
+    ...(verificationData.aadhaar && verificationData.aadhaar !== "N/A"
       ? [
-          { icon: User, label: "Gender", value: verificationData.gender },
-          { icon: MapPin, label: "Address", value: verificationData.address },
+          {
+            icon: Hash,
+            label: "Aadhaar Number",
+            value: verificationData.aadhaar,
+          },
         ]
       : []),
+    ...(verificationData.pan && verificationData.pan !== "N/A"
+      ? [{ icon: Hash, label: "PAN Number", value: verificationData.pan }]
+      : []),
+    { icon: User, label: "Gender", value: verificationData.gender },
+    { icon: MapPin, label: "Address", value: verificationData.address },
   ];
+
+  console.log("verificationData:", verificationData);
+  console.log("detailItems:", detailItems);
 
   return (
     <div className="min-h-screen bg-black">

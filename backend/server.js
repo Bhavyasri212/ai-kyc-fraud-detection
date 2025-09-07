@@ -2,21 +2,31 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./config/db.js";
+
 import authRoutes from "./routes/authRoutes.js";
 import docRoutes from "./routes/docRoutes.js";
 import verificationRoutes from "./routes/verification.js";
+
+// Import the new KYC routes
+import kycRoutes from "./routes/kyc.js";
 
 dotenv.config();
 connectDB();
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
+// Existing routes
 app.use("/api/auth", authRoutes);
 app.use("/api/docs", docRoutes);
 app.use("/api/verification", verificationRoutes);
+
+// New KYC routes
+app.use("/api/kyc", kycRoutes);
+
 // Error handling middleware - must be after all other middleware/routes
 app.use((err, req, res, next) => {
   console.error("Server error:", err.stack); // Logs the full error stack to the terminal

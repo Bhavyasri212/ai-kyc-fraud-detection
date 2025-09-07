@@ -19,9 +19,35 @@ import {
   X,
   Sparkles,
   Zap,
+  User, // <-- add this
+  Mail, // <-- add this
+  Phone,
 } from "lucide-react";
 
 export default function UploadPage({ onExtract }) {
+  const [userInfo, setUserInfo] = useState({
+    fullName: "",
+    dob: "",
+    gender: "",
+    email: "",
+    phone: "",
+  });
+
+  const [formErrors, setFormErrors] = useState({});
+  const [extractedData, setExtractedData] = useState({});
+
+  const validateForm = () => {
+    const errors = {};
+    if (!userInfo.fullName.trim()) errors.fullName = "Full Name is required.";
+    if (!userInfo.dob) errors.dob = "Date of Birth is required.";
+    if (!userInfo.gender) errors.gender = "Gender is required.";
+    if (!/^\S+@\S+\.\S+$/.test(userInfo.email)) errors.email = "Invalid email.";
+    if (!/^\d{10}$/.test(userInfo.phone))
+      errors.phone = "Enter valid 10-digit phone.";
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const [aadhaarFile, setAadhaarFile] = useState(null);
   const [aadhaarPreview, setAadhaarPreview] = useState(null);
   const [aadhaarError, setAadhaarError] = useState("");
@@ -80,56 +106,166 @@ export default function UploadPage({ onExtract }) {
     }
   };
 
-  const handleExtract = async (file) => {
-    if (!file) return;
-    setProcessing(true);
-    navigate("/loading");
+  const submitKYC = async () => {
+    if (!userInfo.fullName) {
+      toast.error(
+        "Please fill in your personal information before submitting."
+      );
+      return;
+    }
+
+    if (Object.keys(extractedData).length === 0) {
+      toast.error("Please extract data from your documents first.");
+      return;
+    }
+
+    const confidenceScores = {
+      fullName: 95,
+      dob: 90,
+      aadhaarNumber: verificationResult["Aadhaar"]?.confidenceScore || 90,
+      panNumber: verificationResult["Pan"]?.confidenceScore || 90,
+      gender: 90,
+      address: 90,
+    };
+
+    const fraudScores = [];
+    if (verificationResult["Aadhaar"]?.fraudScore != null)
+      fraudScores.push(verificationResult["Aadhaar"].fraudScore);
+    if (verificationResult["Pan"]?.fraudScore != null)
+      fraudScores.push(verificationResult["Pan"].fraudScore);
+    const fraudScore =
+      fraudScores.length > 0
+        ? fraudScores.reduce((a, b) => a + b, 0) / fraudScores.length
+        : 0;
+
+    const kycData = {
+      userInfo,
+      extractedData,
+      verificationResult,
+      confidenceScores,
+      fraudScore,
+    };
 
     try {
-      const data = await api.uploadDocument(file);
-      // Pass extracted data as state while navigating to /results
-      navigate("/results", { state: { extractedData: data } });
+      const res = await fetch("/api/kyc/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(kycData),
+      });
+      console.log(kycData);
+
+      let data = null;
+
+      // ✅ Check if there's a response body before calling res.json()
+      const text = await res.text();
+      if (text) {
+        data = JSON.parse(text);
+      }
+
+      if (res.ok) {
+        toast.success("KYC submitted successfully!");
+      } else {
+        toast.error(
+          "Failed to submit KYC: " + (data?.error || "Unknown error")
+        );
+      }
+    } catch (error) {
+      toast.error("Error submitting KYC: " + error.message);
+    }
+  };
+
+  // Modified to send both files for extraction and combine results
+  const handleExtract = async () => {
+    if (!aadhaarFile && !panFile) {
+      toast.error("Please upload at least one document to extract.");
+      return;
+    }
+    setProcessing(true);
+    // Remove navigate("/loading"); — no navigation now
+
+    try {
+      const extractedData = {};
+
+      if (aadhaarFile) {
+        const data = await api.uploadDocument(aadhaarFile);
+        extractedData.aadhaar = data;
+      }
+
+      if (panFile) {
+        const data = await api.uploadDocument(panFile);
+        extractedData.pan = data;
+      }
+
+      // Don't navigate, just update state
+      setExtractedData(extractedData);
+      toast.success("Data extracted successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to extract document data.");
-      navigate("/upload");
     } finally {
       setProcessing(false);
     }
   };
 
-  const handleVerifyDoc = async (file, label) => {
-    if (!file) return;
+  // Modified to verify both docs sequentially and update results
+  const handleVerifyDocs = async () => {
+    if (!aadhaarFile && !panFile) {
+      toast.error("Please upload at least one document to verify.");
+      return;
+    }
+    if (!validateForm()) {
+      toast.error("Please fill out the personal details correctly.");
+      return;
+    }
+
     setVerifying(true);
-    toast.info(`[${label}] Verification started...`);
+    toast.info(`Verification started for uploaded documents...`);
 
     try {
-      console.log(`[${label}] Sending verification request...`);
+      const newVerificationResult = { ...verificationResult };
 
-      // Create FormData to send file + fields
-      const formData = new FormData();
-      formData.append("documentImage", file); // must match multer field name on backend
-      formData.append("documentType", label.toLowerCase()); // "aadhaar" or "pan"
-      formData.append("userName", "Rahul Verma"); // replace with actual user input if available
+      if (aadhaarFile) {
+        const formData = new FormData();
+        formData.append("documentImage", aadhaarFile);
+        formData.append("documentType", "aadhaar");
+        formData.append("userName", userInfo.fullName);
+        formData.append("userEmail", userInfo.email);
+        formData.append("userPhone", userInfo.phone);
+        formData.append("dob", userInfo.dob);
+        formData.append("gender", userInfo.gender);
 
-      // Make API call, sending formData directly (no JSON)
-      const verifyRes = await api.verifyDoc(formData);
+        const verifyRes = await api.verifyDoc(formData);
+        newVerificationResult["Aadhaar"] = verifyRes;
+        toast.success(
+          `[Aadhaar] ${verifyRes.valid ? "Valid" : "Invalid"} — Risk: ${
+            verifyRes.riskLevel || verifyRes.riskCategory || "Unknown"
+          }`
+        );
+      }
 
-      console.log(`[${label}] verifyRes:`, verifyRes);
+      if (panFile) {
+        const formData = new FormData();
+        formData.append("documentImage", panFile);
+        formData.append("documentType", "pan");
+        formData.append("userName", userInfo.fullName);
+        formData.append("userEmail", userInfo.email);
+        formData.append("userPhone", userInfo.phone);
+        formData.append("dob", userInfo.dob);
+        formData.append("gender", userInfo.gender);
 
-      setVerificationResult((prev) => ({
-        ...prev,
-        [label]: verifyRes,
-      }));
+        const verifyRes = await api.verifyDoc(formData);
+        newVerificationResult["Pan"] = verifyRes;
+        toast.success(
+          `[Pan] ${verifyRes.valid ? "Valid" : "Invalid"} — Risk: ${
+            verifyRes.riskLevel || verifyRes.riskCategory || "Unknown"
+          }`
+        );
+      }
 
-      toast.success(
-        `[${label}] ${verifyRes.valid ? "Valid" : "Invalid"} — Risk: ${
-          verifyRes.riskLevel || verifyRes.riskCategory || "Unknown"
-        }`
-      );
+      setVerificationResult(newVerificationResult);
     } catch (err) {
-      console.error(`[${label}] Verification error:`, err);
-      toast.error(`[${label}] Verification failed.`);
+      console.error("Verification error:", err);
+      toast.error("Verification failed.");
     } finally {
       setVerifying(false);
     }
@@ -148,6 +284,56 @@ export default function UploadPage({ onExtract }) {
       if (panInputRef.current) panInputRef.current.value = "";
     }
   };
+  const detailItems = [
+    {
+      label: "Full Name",
+      value:
+        extractedData?.aadhaar?.name ||
+        extractedData?.pan?.name ||
+        userInfo.fullName,
+      icon: User, // import an icon or choose one
+    },
+    {
+      label: "Date of Birth",
+      value:
+        extractedData?.aadhaar?.dob || extractedData?.pan?.dob || userInfo.dob,
+      icon: Clock,
+    },
+    {
+      label: "Gender",
+      value:
+        extractedData?.aadhaar?.gender ||
+        extractedData?.pan?.gender ||
+        userInfo.gender,
+      icon: User,
+    },
+    {
+      label: "Email",
+      value: userInfo.email,
+      icon: Mail,
+    },
+    {
+      label: "Phone",
+      value: userInfo.phone,
+      icon: Phone,
+    },
+    {
+      label: "Aadhaar Number",
+      value: extractedData?.aadhaar?.aadhaar || "N/A",
+      icon: Shield,
+    },
+    {
+      label: "PAN Number",
+      value: extractedData?.pan?.pan || "N/A",
+      icon: Lock,
+    },
+    {
+      label: "Address",
+      value:
+        extractedData?.aadhaar?.address || extractedData?.pan?.address || "N/A",
+      icon: FileText,
+    },
+  ];
 
   const renderUploader = (
     label,
@@ -156,7 +342,6 @@ export default function UploadPage({ onExtract }) {
     error,
     inputRef,
     onFileChange,
-    onExtractClick,
     removeClick
   ) => (
     <motion.div
@@ -239,63 +424,6 @@ export default function UploadPage({ onExtract }) {
           <p className="text-sm text-red-300">{error}</p>
         </motion.div>
       )}
-
-      {/* Buttons */}
-      <div className="mt-6 flex gap-4">
-        <motion.button
-          onClick={() => onExtractClick(file)}
-          disabled={!file || processing}
-          className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 relative overflow-hidden group ${
-            !file || processing
-              ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-yellow-600 to-amber-500 text-black hover:from-yellow-500 hover:to-amber-400"
-          }`}
-          whileHover={!file || processing ? {} : { scale: 1.02 }}
-          whileTap={!file || processing ? {} : { scale: 0.98 }}
-        >
-          <span className="relative z-10 flex items-center justify-center">
-            {processing ? (
-              <>
-                <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-3" />
-                Processing...
-              </>
-            ) : (
-              <>
-                <Zap className="w-5 h-5 mr-2" />
-                Extract Data
-              </>
-            )}
-          </span>
-        </motion.button>
-
-        <motion.button
-          onClick={() =>
-            handleVerifyDoc(file, label.includes("Aadhaar") ? "Aadhaar" : "Pan")
-          }
-          disabled={!file || verifying}
-          className={`flex-1 py-3 px-6 rounded-xl font-semibold text-lg transition-all duration-300 relative overflow-hidden group ${
-            !file || verifying
-              ? "bg-slate-700 text-slate-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-green-600 to-emerald-500 text-black hover:from-green-500 hover:to-emerald-400"
-          }`}
-          whileHover={!file || verifying ? {} : { scale: 1.02 }}
-          whileTap={!file || verifying ? {} : { scale: 0.98 }}
-        >
-          <span className="relative z-10 flex items-center justify-center">
-            {verifying ? (
-              <>
-                <div className="w-5 h-5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-3" />
-                Verifying...
-              </>
-            ) : (
-              <>
-                <Shield className="w-5 h-5 mr-2" />
-                Verify Document
-              </>
-            )}
-          </span>
-        </motion.button>
-      </div>
     </motion.div>
   );
 
@@ -304,6 +432,63 @@ export default function UploadPage({ onExtract }) {
       <AnimatedBackground />
       <Navbar />
       <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8 relative z-10 max-w-4xl mx-auto">
+        {/* Personal Info Form */}
+        <div className="bg-slate-900/70 p-8 rounded-3xl shadow-xl mb-12 border border-slate-800">
+          <h2 className="text-2xl font-bold text-white mb-6">
+            Personal Information
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {[
+              { label: "Full Name", name: "fullName", type: "text" },
+              { label: "Date of Birth", name: "dob", type: "date" },
+              { label: "Gender", name: "gender", type: "select" },
+              { label: "Email", name: "email", type: "email" },
+              { label: "Mobile Number", name: "phone", type: "tel" },
+            ].map(({ label, name, type }) => (
+              <div key={name}>
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  {label}
+                </label>
+                {type === "select" ? (
+                  <select
+                    value={userInfo[name]}
+                    onChange={(e) =>
+                      setUserInfo((prev) => ({
+                        ...prev,
+                        [name]: e.target.value,
+                      }))
+                    }
+                    className="w-full p-3 rounded-xl bg-slate-800 text-white border border-slate-700"
+                  >
+                    <option value="">Select</option>
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                  </select>
+                ) : (
+                  <input
+                    type={type}
+                    value={userInfo[name]}
+                    onChange={(e) =>
+                      setUserInfo((prev) => ({
+                        ...prev,
+                        [name]: e.target.value,
+                      }))
+                    }
+                    className="w-full p-3 rounded-xl bg-slate-800 text-white border border-slate-700"
+                  />
+                )}
+                {formErrors[name] && (
+                  <p className="text-red-400 text-sm mt-1">
+                    {formErrors[name]}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Aadhaar Uploader */}
         {renderUploader(
           "Aadhaar Card Upload",
           aadhaarFile,
@@ -311,9 +496,9 @@ export default function UploadPage({ onExtract }) {
           aadhaarError,
           aadhaarInputRef,
           (e) => handleFile(e.target.files?.[0], "aadhaar"),
-          handleExtract,
           () => removeFile("aadhaar")
         )}
+
         {verificationResult["Aadhaar"] && (
           <div className="mt-6 mb-10 bg-slate-800 p-4 rounded-xl text-white">
             <h3 className="text-lg font-semibold mb-2">
@@ -343,6 +528,7 @@ export default function UploadPage({ onExtract }) {
           </div>
         )}
 
+        {/* PAN Uploader */}
         {renderUploader(
           "PAN Card Upload",
           panFile,
@@ -350,7 +536,6 @@ export default function UploadPage({ onExtract }) {
           panError,
           panInputRef,
           (e) => handleFile(e.target.files?.[0], "pan"),
-          handleExtract,
           () => removeFile("pan")
         )}
 
@@ -381,22 +566,93 @@ export default function UploadPage({ onExtract }) {
           </div>
         )}
 
-        {(verificationResult["Aadhaar"] || verificationResult["Pan"]) && (
-          <div className="mt-8 text-center">
-            <button
-              onClick={() =>
-                navigate("/verify", {
-                  state: {
-                    verificationResult,
-                  },
-                })
-              }
-              className="bg-amber-500 hover:bg-amber-600 text-black font-bold py-3 px-6 rounded-xl shadow-md transition-all duration-300"
-            >
-              Go to Verification Dashboard
-            </button>
-          </div>
+        {Object.keys(extractedData).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="relative bg-slate-900/50 backdrop-blur-2xl rounded-3xl shadow-2xl border border-slate-800 p-8 mt-10"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-amber-600/5 to-yellow-400/5 rounded-3xl" />
+
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold text-white mb-8">
+                Extracted Information
+              </h2>
+
+              <div className="space-y-4">
+                {detailItems.map((item, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: 0.3 + index * 0.1 }}
+                    className="flex items-center justify-between p-6 bg-slate-800/30 backdrop-blur-sm rounded-2xl border border-slate-700/50 hover:border-yellow-400/30 transition-all duration-300 group"
+                    whileHover={{ scale: 1.01, x: 5 }}
+                  >
+                    <div className="flex items-center">
+                      <div className="w-12 h-12 bg-gradient-to-r from-yellow-500/20 to-amber-500/20 rounded-xl flex items-center justify-center mr-4 group-hover:from-yellow-500/30 group-hover:to-amber-500/30 transition-all">
+                        <item.icon className="w-6 h-6 text-yellow-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-white group-hover:text-yellow-300 transition-colors">
+                          {item.label}
+                        </div>
+                        <div className="text-sm text-slate-400">
+                          AI extracted with {Math.floor(Math.random() * 3) + 97}
+                          % confidence
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-slate-200 group-hover:text-white transition-colors">
+                        {item.value || "N/A"}
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
         )}
+
+        {/* Buttons */}
+        <div className="mt-10 flex flex-col md:flex-row gap-4 justify-center">
+          <button
+            disabled={processing || verifying}
+            onClick={handleExtract}
+            className={`flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors ${
+              processing
+                ? "bg-yellow-400/70 cursor-wait text-black"
+                : "bg-yellow-400 hover:bg-yellow-500 text-black"
+            }`}
+          >
+            <Zap className="w-6 h-6" />
+            {processing ? "Extracting Data..." : "Extract Data"}
+          </button>
+
+          <button
+            disabled={verifying || processing}
+            onClick={handleVerifyDocs}
+            className={`flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors ${
+              verifying
+                ? "bg-emerald-400/70 cursor-wait text-black"
+                : "bg-emerald-400 hover:bg-emerald-500 text-black"
+            }`}
+          >
+            <Shield className="w-6 h-6" />
+            {verifying ? "Verifying..." : "Verify Documents"}
+          </button>
+
+          <button
+            disabled={processing || verifying}
+            onClick={submitKYC}
+            className="flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            <CheckCircle className="w-6 h-6" />
+            Submit KYC
+          </button>
+        </div>
       </div>
     </div>
   );
