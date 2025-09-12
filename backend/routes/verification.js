@@ -7,6 +7,13 @@ import fs from "fs";
 import { execFile } from "child_process";
 import path from "path";
 import { extractKYCDetails } from "../controllers/docController.js";
+import KYCRequest from "../models/kyc.js";
+import crypto from "crypto"; // For hashing
+import { normalize } from "../utils/normalize.js";
+
+const hashValue = (value) => {
+  return crypto.createHash("sha256").update(value).digest("hex");
+};
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -38,7 +45,47 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
     const nameOnDoc = extractedData?.name || "";
 
     // Step 3: OPTIONAL - Real duplicate check (replace logic with DB)
-    let isDuplicate = false;
+    // ✅ Normalize input before hashing using shared utility
+    const rawAadhaar =
+      typeof extractedData.aadhaar === "string"
+        ? extractedData.aadhaar
+        : extractedData.aadhaar?.aadhaar || "";
+
+    const rawPan =
+      typeof extractedData.pan === "string"
+        ? extractedData.pan
+        : extractedData.pan?.pan || "";
+
+    const aadhaar = normalize(rawAadhaar);
+    const pan = normalize(rawPan);
+
+    // Compute hashes
+    const aadhaarHash = aadhaar ? hashValue(aadhaar) : null;
+    const panHash = pan ? hashValue(pan) : null;
+
+    // 🐞 Log for debugging
+    console.log("Aadhaar normalized:", aadhaar);
+    console.log("PAN normalized:", pan);
+    console.log("Aadhaar hash:", aadhaarHash);
+    console.log("PAN hash:", panHash);
+
+    // 🔍 Duplicate check query
+    const orQuery = [
+      aadhaarHash ? { aadhaarHash } : null,
+      panHash ? { panHash } : null,
+    ].filter(Boolean);
+
+    console.log("Duplicate query:", orQuery);
+
+    const duplicate = await KYCRequest.findOne({ $or: orQuery });
+
+    console.log("Duplicate found:", duplicate);
+
+    const isDuplicate = !!duplicate;
+    console.log("Is duplicate:", isDuplicate);
+
+    // 📝 Mark in extracted data for downstream use
+    extractedData.is_duplicate = isDuplicate;
 
     // Step 4: Name similarity check
     let nameSimilarityScore = 1.0;
@@ -105,6 +152,7 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
           reason: [...reason, ...fraudReasons],
           extractedData,
           ocrTextSnippet: rawText.slice(0, 200),
+          isDuplicate,
         });
       } catch (parseError) {
         console.error("Error parsing Python output:", parseError);

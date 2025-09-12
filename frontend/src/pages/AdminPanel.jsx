@@ -99,7 +99,7 @@ export default function AdminPanel() {
             <thead className="text-sm text-yellow-300 uppercase bg-yellow-900/10 rounded-t-lg font-semibold">
               <tr>
                 <th className="py-4 px-6">User</th>
-                <th className="py-4 px-6">Documents</th>
+                {/* <th className="py-4 px-6">Documents</th> */}
                 <th className="py-4 px-6">OCR Data</th>
                 <th className="py-4 px-6">Fraud Score</th>
                 <th className="py-4 px-6">Status</th>
@@ -146,9 +146,9 @@ export default function AdminPanel() {
                       </td>
 
                       {/* Documents */}
-                      <td className="py-4 px-6 text-sm text-slate-300 italic">
+                      {/* <td className="py-4 px-6 text-sm text-slate-300 italic">
                         No documents available
-                      </td>
+                      </td> */}
 
                       {/* OCR Data */}
                       <td className="py-4 px-6 max-w-sm overflow-x-auto text-xs text-yellow-300 font-mono whitespace-pre-wrap bg-black/40 p-3 rounded-lg border border-yellow-900">

@@ -58,7 +58,7 @@ export default function UploadPage({ onExtract }) {
     if (!userInfo.fullName.trim()) errors.fullName = "Full Name is required.";
     if (!userInfo.dob) errors.dob = "Date of Birth is required.";
     if (!userInfo.gender) errors.gender = "Gender is required.";
-    if (!/^\S+@\S+\.\S+$/.test(userInfo.email)) errors.email = "Invalid email.";
+
     if (!/^\d{10}$/.test(userInfo.phone))
       errors.phone = "Enter valid 10-digit phone.";
     setFormErrors(errors);

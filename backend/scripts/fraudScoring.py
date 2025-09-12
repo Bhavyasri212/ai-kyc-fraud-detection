@@ -190,43 +190,58 @@ def calculate_fraud_score(data, doc_type, image_path):
     score = 0
     reasons = []
 
+    # 🔁 1. Duplicate Submission (Major fraud indicator)
     if data.get('is_duplicate'):
-        score += 80
+        score += 50
         reasons.append("Duplicate submission detected.")
 
+    # 🔐 2. Aadhaar or PAN format validation
     if doc_type == "aadhaar":
         aadhaar = data.get('aadhaar_number', '')
         if not (aadhaar.isdigit() and len(aadhaar) == 12 and verhoeff_check(aadhaar)):
-            score += 50
+            score += 30
             reasons.append("Invalid Aadhaar checksum.")
     elif doc_type == "pan":
         pan = data.get('pan_number', '')
         pan_pattern = r'^[A-Z]{5}[0-9]{4}[A-Z]$'
         if not re.match(pan_pattern, pan):
-            score += 50
+            score += 30
             reasons.append("Invalid PAN format.")
 
+    # 🧪 3. Document tampering detection (very high risk)
     if detect_document_tampering(image_path):
         score += 40
         reasons.append("Potential document manipulation detected.")
 
+    # 🧠 4. Layout or structure anomaly via GNN
     if not evaluate_structure_with_gnn(data):
-        score += 30
+        score += 25
         reasons.append("Anomalies detected in document structure.")
 
+    # 🧍 5. Name mismatch (moderate risk — identity mismatch)
     similarity = compute_name_similarity(data.get("name_on_doc", ""), data.get("name_input", ""))
-    if similarity < 0.7:
-        score += 20
-        reasons.append("Name on document does not closely match user input.")
+    if similarity < 0.9:
+        if similarity < 0.7:
+            score += 20
+            reasons.append("Name on document does not closely match user input.")
+        else:
+            score += 10
+            reasons.append("Minor discrepancy in name match.")
 
+    # 🔚 Cap at 100 and assign risk level
     final_score = min(score, 100)
-    risk_level = "Low" if final_score <= 30 else "Medium" if final_score <= 70 else "High"
+    risk_level = (
+        "Low" if final_score <= 30 else
+        "Medium" if final_score <= 70 else
+        "High"
+    )
 
     return {
         "fraud_score": final_score,
         "risk_level": risk_level,
         "reasons": reasons
     }
+
 
 # ------------------------
 # Main Entry Point

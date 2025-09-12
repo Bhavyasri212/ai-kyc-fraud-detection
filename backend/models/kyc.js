@@ -13,9 +13,13 @@ const KYCRequestSchema = new mongoose.Schema(
     },
 
     extractedData: {
-      type: mongoose.Schema.Types.Mixed, // allows dynamic keys like aadhaar, pan, passport, etc.
+      type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+
+    // ✅ Add these fields for duplicate detection
+    aadhaarHash: { type: String, index: true },
+    panHash: { type: String, index: true },
 
     fraudInfo: [
       {
@@ -27,11 +31,11 @@ const KYCRequestSchema = new mongoose.Schema(
     ],
 
     verificationResult: {
-      type: mongoose.Schema.Types.Mixed, // in case you need to store full raw result
+      type: mongoose.Schema.Types.Mixed,
       default: {},
     },
 
-    fraudScore: Number, // averaged fraud score if calculated on frontend
+    fraudScore: Number,
 
     confidenceScores: {
       type: mongoose.Schema.Types.Mixed,
