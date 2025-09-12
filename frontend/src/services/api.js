@@ -1,3 +1,4 @@
+// frontend/src/services/api.js
 import axios from "axios";
 
 const API_BASE = "http://localhost:5000/api"; // Backend base URL
@@ -10,10 +11,11 @@ const axiosInstance = axios.create({
   baseURL: API_BASE,
 });
 
-// Add a request interceptor to add Authorization header if token exists
+// Add Authorization header automatically
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = getToken();
+    console.log("Sending token:", token); // Add this line to debug
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -25,9 +27,6 @@ axiosInstance.interceptors.request.use(
 const api = {
   /**
    * Login user
-   * @param {string} email
-   * @param {string} password
-   * @returns {Promise<Object>} response data including token and userId
    */
   login: async (email, password) => {
     try {
@@ -46,10 +45,6 @@ const api = {
 
   /**
    * Signup new user
-   * @param {string} name
-   * @param {string} email
-   * @param {string} password
-   * @returns {Promise<Object>} response data
    */
   signup: async (name, email, password) => {
     try {
@@ -67,21 +62,19 @@ const api = {
 
   /**
    * Upload document for OCR
-   * @param {File} file - file to upload
-   * @returns {Promise<Object>} extracted data from OCR
    */
   uploadDocument: async (file) => {
     try {
+      const token = getToken();
+      console.log("Upload token being used:", token); // Add this
       const formData = new FormData();
       formData.append("document", file);
 
       const res = await axiosInstance.post("/docs/upload-doc", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
-      return res.data; // expected { message, extracted: {...} }
+      return res.data;
     } catch (error) {
       console.error(
         "Document upload failed:",
@@ -93,7 +86,6 @@ const api = {
 
   /**
    * Get previously uploaded user documents
-   * @returns {Promise<Object[]>} list of documents
    */
   getUserDocs: async () => {
     try {
@@ -107,9 +99,21 @@ const api = {
       throw error;
     }
   },
+  submitKYC: async (kycData) => {
+    try {
+      const res = await axiosInstance.post("/kyc/submit", kycData);
+      return res.data;
+    } catch (error) {
+      console.error(
+        "KYC submission failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
+  },
 
   /**
-   * Logout user by clearing localStorage tokens
+   * Logout user
    */
   logout: () => {
     localStorage.removeItem("token");
@@ -118,9 +122,7 @@ const api = {
   },
 
   /**
-   * Send forgot password email
-   * @param {string} email
-   * @returns {Promise<Object>} response data
+   * Forgot password
    */
   forgotPassword: async (email) => {
     try {
@@ -135,22 +137,22 @@ const api = {
     }
   },
 
-  /**
-   * Verify a document
-   * @param {FormData} formData
-   * @returns {Promise<Object>} verification result
-   */
-  verifyDoc: async (formData) => {
+  // ---------------- AI Fraud Detection APIs ----------------
+  aiVerifyDoc: async (formData) => {
     try {
-      // Note: Don't set Content-Type manually for FormData
       const res = await axiosInstance.post(
         "/verification/verify-doc",
-        formData
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
       return res.data;
     } catch (error) {
       console.error(
-        "Document verification failed:",
+        "AI document verification failed:",
         error.response?.data || error.message
       );
       throw error;
@@ -158,19 +160,13 @@ const api = {
   },
 
   /**
-   * Get fraud score for a document
-   * @param {Object} params - contains documentType and documentData
-   * @param {string} params.documentType
-   * @param {Object} params.documentData
-   * @returns {Promise<Object>} fraud score data
+   * Fetch fraud score for a given user
+   * @param {string} userId
    */
-  getFraudScore: async ({ documentType, documentData }) => {
+  getFraudScore: async (userId) => {
     try {
-      const res = await axiosInstance.post("/verification/fraud-score", {
-        documentType,
-        documentData,
-      });
-      return res.data;
+      const res = await axiosInstance.get(`/ai/fraud-score/${userId}`);
+      return res.data; // { userId, fraud_score, risk_level }
     } catch (error) {
       console.error(
         "Fetching fraud score failed:",

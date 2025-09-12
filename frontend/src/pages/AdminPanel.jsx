@@ -156,18 +156,17 @@ export default function AdminPanel() {
 
                       {/* Fraud Score */}
                       <td className="py-4 px-6 font-bold text-lg">
-                        {fraudScore !== null ? (
-                          <span
-                            className={
-                              fraudScore > 0.5
-                                ? "text-red-400"
-                                : "text-green-400"
-                            }
-                          >
-                            {fraudScore}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">N/A</span>
+                        {req.fraudInfo && (
+                          <div className="mt-2 text-amber-400">
+                            <ul className="ml-2 list-disc">
+                              {req.fraudInfo.map((info, index) => (
+                                <li key={index}>
+                                  {info.type}: {info.fraudScore} (
+                                  {info.riskLevel})
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
                         )}
                       </td>
 

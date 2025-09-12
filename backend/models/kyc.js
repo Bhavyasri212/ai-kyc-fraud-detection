@@ -1,60 +1,51 @@
-// models/kyc.js
 import mongoose from "mongoose";
 
-const KYCRequestSchema = new mongoose.Schema({
-  userInfo: {
-    fullName: String,
-    dob: String,
-    gender: String,
-    email: String,
-    phone: String,
-  },
-  extractedData: {
-    aadhaar: {
-      aadhaar: String,
-      name: String,
+const KYCRequestSchema = new mongoose.Schema(
+  {
+    userId: { type: String, required: true }, // link to user
+
+    userInfo: {
+      fullName: String,
       dob: String,
       gender: String,
-      address: String,
+      email: String,
+      phone: String,
     },
-    pan: {
-      pan: String,
-      name: String,
-      dob: String,
-      gender: String,
-      aadhaar: String,
-      address: String,
+
+    extractedData: {
+      type: mongoose.Schema.Types.Mixed, // allows dynamic keys like aadhaar, pan, passport, etc.
+      default: {},
+    },
+
+    fraudInfo: [
+      {
+        type: { type: String }, // e.g., "aadhaar", "pan"
+        fraudScore: Number,
+        riskLevel: String,
+        reasons: [String],
+      },
+    ],
+
+    verificationResult: {
+      type: mongoose.Schema.Types.Mixed, // in case you need to store full raw result
+      default: {},
+    },
+
+    fraudScore: Number, // averaged fraud score if calculated on frontend
+
+    confidenceScores: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+
+    status: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
     },
   },
-  verificationResult: {
-    Aadhaar: {
-      valid: Boolean,
-      fraudScore: Number,
-      riskCategory: String,
-      reason: String,
-    },
-    Pan: {
-      valid: Boolean,
-      fraudScore: Number,
-      riskCategory: String,
-      reason: String,
-    },
-  },
-  confidenceScores: {
-    fullName: Number,
-    dob: Number,
-    aadhaarNumber: Number,
-    panNumber: Number,
-    gender: Number,
-    address: Number,
-  },
-  fraudScore: Number,
-  status: {
-    type: String,
-    enum: ["pending", "approved", "rejected"],
-    default: "pending",
-  },
-});
+  { timestamps: true }
+);
 
 const KYCRequest = mongoose.model("KYCRequest", KYCRequestSchema);
 export default KYCRequest;

@@ -14,13 +14,11 @@ import {
   CheckCircle,
   AlertTriangle,
   Lock,
-  Eye,
   Clock,
   X,
   Sparkles,
-  Zap,
-  User, // <-- add this
-  Mail, // <-- add this
+  User,
+  Mail,
   Phone,
 } from "lucide-react";
 
@@ -35,6 +33,25 @@ export default function UploadPage({ onExtract }) {
 
   const [formErrors, setFormErrors] = useState({});
   const [extractedData, setExtractedData] = useState({});
+  const [verificationResult, setVerificationResult] = useState(null);
+
+  const [aadhaarFile, setAadhaarFile] = useState(null);
+  const [aadhaarPreview, setAadhaarPreview] = useState(null);
+  const [aadhaarError, setAadhaarError] = useState("");
+
+  const [panFile, setPanFile] = useState(null);
+  const [panPreview, setPanPreview] = useState(null);
+  const [panError, setPanError] = useState("");
+
+  const [processing, setProcessing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+
+  const aadhaarInputRef = useRef(null);
+  const panInputRef = useRef(null);
+  const navigate = useNavigate();
+
+  const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
+  const maxSize = 2 * 1024 * 1024;
 
   const validateForm = () => {
     const errors = {};
@@ -47,25 +64,6 @@ export default function UploadPage({ onExtract }) {
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
-
-  const [aadhaarFile, setAadhaarFile] = useState(null);
-  const [aadhaarPreview, setAadhaarPreview] = useState(null);
-  const [aadhaarError, setAadhaarError] = useState("");
-
-  const [panFile, setPanFile] = useState(null);
-  const [panPreview, setPanPreview] = useState(null);
-  const [panError, setPanError] = useState("");
-
-  const [processing, setProcessing] = useState(false);
-  const [verificationResult, setVerificationResult] = useState({});
-  const [verifying, setVerifying] = useState(false);
-
-  const aadhaarInputRef = useRef(null);
-  const panInputRef = useRef(null);
-  const navigate = useNavigate();
-
-  const allowedTypes = ["image/jpeg", "image/png", "application/pdf"];
-  const maxSize = 2 * 1024 * 1024;
 
   const makePreview = (f) => {
     if (!f) return null;
@@ -93,7 +91,7 @@ export default function UploadPage({ onExtract }) {
         setAadhaarFile(f);
         setAadhaarPreview(makePreview(f));
       }
-    } else {
+    } else if (type === "pan") {
       if (error) {
         setPanError(error);
         setPanFile(null);
@@ -106,76 +104,109 @@ export default function UploadPage({ onExtract }) {
     }
   };
 
-  const submitKYC = async () => {
-    if (!userInfo.fullName) {
-      toast.error(
-        "Please fill in your personal information before submitting."
-      );
+  // ------------------ AI Verification ------------------
+  const handleVerifyDocs = async () => {
+    if (!aadhaarFile && !panFile) {
+      toast.error("Please upload at least one document to verify.");
       return;
     }
 
-    if (Object.keys(extractedData).length === 0) {
-      toast.error("Please extract data from your documents first.");
-      return;
-    }
-
-    const confidenceScores = {
-      fullName: 95,
-      dob: 90,
-      aadhaarNumber: verificationResult["Aadhaar"]?.confidenceScore || 90,
-      panNumber: verificationResult["Pan"]?.confidenceScore || 90,
-      gender: 90,
-      address: 90,
-    };
-
-    const fraudScores = [];
-    if (verificationResult["Aadhaar"]?.fraudScore != null)
-      fraudScores.push(verificationResult["Aadhaar"].fraudScore);
-    if (verificationResult["Pan"]?.fraudScore != null)
-      fraudScores.push(verificationResult["Pan"].fraudScore);
-    const fraudScore =
-      fraudScores.length > 0
-        ? fraudScores.reduce((a, b) => a + b, 0) / fraudScores.length
-        : 0;
-
-    const kycData = {
-      userInfo,
-      extractedData,
-      verificationResult,
-      confidenceScores,
-      fraudScore,
-    };
+    setVerifying(true);
+    toast.info("Running AI-based fraud detection...");
 
     try {
-      const API_BASE = "http://localhost:5000/api"; // Backend base URL
-      const res = await fetch(`${API_BASE}/kyc/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(kycData),
-      });
-      console.log(kycData);
+      const results = [];
 
-      let data = null;
+      if (aadhaarFile) {
+        const formData = new FormData();
+        formData.append("documentImage", aadhaarFile);
+        formData.append("documentType", "aadhaar");
+        formData.append("userName", userInfo.fullName || "");
 
-      // ✅ Check if there's a response body before calling res.json()
-      const text = await res.text();
-      if (text) {
-        data = JSON.parse(text);
+        const aadhaarResult = await api.aiVerifyDoc(formData);
+        results.push({ type: "aadhaar", ...aadhaarResult });
       }
 
-      if (res.ok) {
-        toast.success("KYC submitted successfully!");
-      } else {
-        toast.error(
-          "Failed to submit KYC: " + (data?.error || "Unknown error")
-        );
+      if (panFile) {
+        const formData = new FormData();
+        formData.append("documentImage", panFile);
+        formData.append("documentType", "pan");
+        formData.append("userName", userInfo.fullName || "");
+
+        const panResult = await api.aiVerifyDoc(formData);
+        results.push({ type: "pan", ...panResult });
       }
+
+      setVerificationResult(results);
+      console.log("Verification Result:", results);
+      toast.success("Document(s) verified successfully!");
     } catch (error) {
-      toast.error("Error submitting KYC: " + error.message);
+      console.error("Verification error:", error);
+      toast.error(
+        error?.response?.data?.error ||
+          "Verification failed due to server error"
+      );
+    } finally {
+      setVerifying(false);
     }
   };
 
-  // Modified to send both files for extraction and combine results
+  const submitKYC = async () => {
+    if (!validateForm()) {
+      toast.error("Please fill in missing required personal information.");
+      return;
+    }
+
+    if (!verificationResult || !Array.isArray(verificationResult)) {
+      toast.error("Please verify your document before submitting KYC.");
+      return;
+    }
+
+    const combinedExtractedData = {};
+    const fraudInfos = [];
+
+    verificationResult.forEach((result) => {
+      if (result.extractedData && typeof result.extractedData === "object") {
+        if (result.type) {
+          // ✅ FIX: Prefer the whole object, not just result.extractedData[result.type]
+          const docData = result.extractedData;
+
+          // Only include if it's an object
+          if (docData && typeof docData === "object") {
+            combinedExtractedData[result.type.toLowerCase()] = docData;
+          }
+        }
+      }
+
+      // Collect fraud info
+      fraudInfos.push({
+        type: result.type,
+        fraudScore: result.fraudScore,
+        riskLevel: result.riskLevel,
+        reasons: result.reason,
+      });
+    });
+
+    const kycData = {
+      userInfo,
+      extractedData: combinedExtractedData,
+      fraudInfo: fraudInfos,
+      verificationResult,
+    };
+
+    try {
+      const res = await api.submitKYC(kycData);
+      toast.success("KYC submitted successfully!");
+    } catch (error) {
+      const message =
+        error.response?.data?.error ||
+        error.message ||
+        "Unknown error submitting KYC";
+      toast.error("Error submitting KYC: " + message);
+    }
+  };
+
+  // ------------------ Extraction ------------------ (if still needed)
   const handleExtract = async () => {
     if (!aadhaarFile && !panFile) {
       toast.error("Please upload at least one document to extract.");
@@ -208,83 +239,24 @@ export default function UploadPage({ onExtract }) {
     }
   };
 
-  // Modified to verify both docs sequentially and update results
-  const handleVerifyDocs = async () => {
-    if (!aadhaarFile && !panFile) {
-      toast.error("Please upload at least one document to verify.");
-      return;
-    }
-    if (!validateForm()) {
-      toast.error("Please fill out the personal details correctly.");
-      return;
-    }
-
-    setVerifying(true);
-    toast.info(`Verification started for uploaded documents...`);
-
-    try {
-      const newVerificationResult = { ...verificationResult };
-
-      if (aadhaarFile) {
-        const formData = new FormData();
-        formData.append("documentImage", aadhaarFile);
-        formData.append("documentType", "aadhaar");
-        formData.append("userName", userInfo.fullName);
-        formData.append("userEmail", userInfo.email);
-        formData.append("userPhone", userInfo.phone);
-        formData.append("dob", userInfo.dob);
-        formData.append("gender", userInfo.gender);
-
-        const verifyRes = await api.verifyDoc(formData);
-        newVerificationResult["Aadhaar"] = verifyRes;
-        toast.success(
-          `[Aadhaar] ${verifyRes.valid ? "Valid" : "Invalid"} — Risk: ${
-            verifyRes.riskLevel || verifyRes.riskCategory || "Unknown"
-          }`
-        );
-      }
-
-      if (panFile) {
-        const formData = new FormData();
-        formData.append("documentImage", panFile);
-        formData.append("documentType", "pan");
-        formData.append("userName", userInfo.fullName);
-        formData.append("userEmail", userInfo.email);
-        formData.append("userPhone", userInfo.phone);
-        formData.append("dob", userInfo.dob);
-        formData.append("gender", userInfo.gender);
-
-        const verifyRes = await api.verifyDoc(formData);
-        newVerificationResult["Pan"] = verifyRes;
-        toast.success(
-          `[Pan] ${verifyRes.valid ? "Valid" : "Invalid"} — Risk: ${
-            verifyRes.riskLevel || verifyRes.riskCategory || "Unknown"
-          }`
-        );
-      }
-
-      setVerificationResult(newVerificationResult);
-    } catch (err) {
-      console.error("Verification error:", err);
-      toast.error("Verification failed.");
-    } finally {
-      setVerifying(false);
-    }
-  };
-
   const removeFile = (type) => {
     if (type === "aadhaar") {
       setAadhaarFile(null);
       setAadhaarPreview(null);
       setAadhaarError("");
       if (aadhaarInputRef.current) aadhaarInputRef.current.value = "";
-    } else {
+    }
+    if (type === "pan") {
       setPanFile(null);
       setPanPreview(null);
       setPanError("");
       if (panInputRef.current) panInputRef.current.value = "";
     }
   };
+
+  // ------------------ UI ------------------
+
+  // Then in detailItems use combinedExtractedData:
   const detailItems = [
     {
       label: "Full Name",
@@ -352,7 +324,6 @@ export default function UploadPage({ onExtract }) {
       className="relative bg-slate-900/50 backdrop-blur-2xl rounded-3xl shadow-2xl border border-slate-800 p-8 mb-10"
     >
       <h2 className="text-xl font-bold text-white mb-6">{label}</h2>
-
       <input
         ref={inputRef}
         type="file"
@@ -361,7 +332,6 @@ export default function UploadPage({ onExtract }) {
         className="hidden"
         id={`upload-${label}`}
       />
-
       <label
         htmlFor={`upload-${label}`}
         className={`relative flex flex-col items-center justify-center w-full h-80 border-2 border-dashed rounded-3xl cursor-pointer transition-all duration-300 group ${
@@ -399,7 +369,6 @@ export default function UploadPage({ onExtract }) {
             className="w-full h-full object-contain rounded-2xl"
           />
         )}
-
         {file && (
           <motion.button
             type="button"
@@ -414,7 +383,6 @@ export default function UploadPage({ onExtract }) {
           </motion.button>
         )}
       </label>
-
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -464,7 +432,6 @@ export default function UploadPage({ onExtract }) {
                     <option value="">Select</option>
                     <option>Male</option>
                     <option>Female</option>
-                    <option>Other</option>
                   </select>
                 ) : (
                   <input
@@ -489,7 +456,7 @@ export default function UploadPage({ onExtract }) {
           </div>
         </div>
 
-        {/* Aadhaar Uploader */}
+        {/* Aadhaar uploader */}
         {renderUploader(
           "Aadhaar Card Upload",
           aadhaarFile,
@@ -500,36 +467,7 @@ export default function UploadPage({ onExtract }) {
           () => removeFile("aadhaar")
         )}
 
-        {verificationResult["Aadhaar"] && (
-          <div className="mt-6 mb-10 bg-slate-800 p-4 rounded-xl text-white">
-            <h3 className="text-lg font-semibold mb-2">
-              Aadhaar Verification Result
-            </h3>
-            <p>
-              Status:{" "}
-              <strong>
-                {verificationResult["Aadhaar"].valid
-                  ? "✅ Valid"
-                  : "❌ Invalid"}
-              </strong>
-            </p>
-            <p>
-              Risk Score:{" "}
-              <strong>{verificationResult["Aadhaar"].fraudScore}%</strong>
-            </p>
-            <p>
-              Risk Level:{" "}
-              <strong>{verificationResult["Aadhaar"].riskCategory}</strong>
-            </p>
-            {verificationResult["Aadhaar"].reason && (
-              <p className="text-red-400">
-                Reason: {verificationResult["Aadhaar"].reason}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* PAN Uploader */}
+        {/* PAN uploader */}
         {renderUploader(
           "PAN Card Upload",
           panFile,
@@ -538,33 +476,6 @@ export default function UploadPage({ onExtract }) {
           panInputRef,
           (e) => handleFile(e.target.files?.[0], "pan"),
           () => removeFile("pan")
-        )}
-
-        {verificationResult["Pan"] && (
-          <div className="mt-6 bg-slate-800 p-4 rounded-xl text-white">
-            <h3 className="text-lg font-semibold mb-2">
-              Pancard Verification Result
-            </h3>
-            <p>
-              Status:{" "}
-              <strong>
-                {verificationResult["Pan"].valid ? "✅ Valid" : "❌ Invalid"}
-              </strong>
-            </p>
-            <p>
-              Risk Score:{" "}
-              <strong>{verificationResult["Pan"].fraudScore}%</strong>
-            </p>
-            <p>
-              Risk Level:{" "}
-              <strong>{verificationResult["Pan"].riskCategory}</strong>
-            </p>
-            {verificationResult["Pan"].reason && (
-              <p className="text-red-400">
-                Reason: {verificationResult["Pan"].reason}
-              </p>
-            )}
-          </div>
         )}
 
         {Object.keys(extractedData).length > 0 && (
@@ -600,8 +511,7 @@ export default function UploadPage({ onExtract }) {
                           {item.label}
                         </div>
                         <div className="text-sm text-slate-400">
-                          AI extracted with {Math.floor(Math.random() * 3) + 97}
-                          % confidence
+                          {/* You could show a confidence level if backend provides */}
                         </div>
                       </div>
                     </div>
@@ -616,6 +526,44 @@ export default function UploadPage({ onExtract }) {
             </div>
           </motion.div>
         )}
+        {/* AI Fraud Results */}
+        {verificationResult && verificationResult.length > 0 && (
+          <div className="mt-6 text-white">
+            <h3 className="text-xl font-semibold mb-4">
+              Fraud Verification Result
+            </h3>
+            {verificationResult.map((result, idx) => (
+              <div
+                key={idx}
+                className="mb-6 bg-slate-800 p-6 rounded-xl border border-yellow-400"
+              >
+                <h4 className="text-lg font-bold mb-2 capitalize">
+                  {result.type} Document
+                </h4>
+                <p>
+                  Fraud Score: <strong>{result.fraudScore}</strong>
+                </p>
+                <p>
+                  Risk Level: <strong>{result.riskLevel}</strong>
+                </p>
+                {result.reason && result.reason.length > 0 ? (
+                  <div className="mt-2">
+                    <p>Reasons:</p>
+                    <ul className="list-disc list-inside ml-5 text-sm text-yellow-200">
+                      {result.reason.map((r, i) => (
+                        <li key={i}>{r}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-gray-400 italic">
+                    No reasons provided.
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Buttons */}
         <div className="mt-10 flex flex-col md:flex-row gap-4 justify-center">
@@ -628,7 +576,7 @@ export default function UploadPage({ onExtract }) {
                 : "bg-yellow-400 hover:bg-yellow-500 text-black"
             }`}
           >
-            <Zap className="w-6 h-6" />
+            <Sparkles className="w-6 h-6" />
             {processing ? "Extracting Data..." : "Extract Data"}
           </button>
 
@@ -642,7 +590,7 @@ export default function UploadPage({ onExtract }) {
             }`}
           >
             <Shield className="w-6 h-6" />
-            {verifying ? "Verifying..." : "Verify Documents"}
+            {verifying ? "Verifying..." : "Verify with AI"}
           </button>
 
           <button

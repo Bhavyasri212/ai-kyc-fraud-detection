@@ -13,6 +13,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 
 // Load environment variables
 dotenv.config();
+console.log("JWT_SECRET loaded:", process.env.JWT_SECRET);
 
 // Connect to MongoDB
 connectDB();
