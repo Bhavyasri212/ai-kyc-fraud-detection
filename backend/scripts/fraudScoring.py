@@ -6,11 +6,14 @@ import re
 import torch
 import torch.nn.functional as F
 from torch_geometric.data import Data
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, global_mean_pool
 from sentence_transformers import SentenceTransformer, util
-from torch_geometric.nn import global_mean_pool
 import os
 
+# Add project root to sys.path
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 # ------------------------
 # Verhoeff Checksum Tables
 # ------------------------
@@ -49,6 +52,7 @@ def verhoeff_check(num):
 # ------------------------
 # Tampering Detection
 # ------------------------
+
 def detect_document_tampering(image_path):
     try:
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
@@ -64,7 +68,7 @@ def detect_document_tampering(image_path):
         large_contours = [cnt for cnt in contours if cv2.contourArea(cnt) > 500]
 
         return len(large_contours) > 10  # Only flag if there are many large, irregular patches
-    except Exception as e:
+    except Exception:
         return False
 
 # ------------------------
@@ -118,15 +122,20 @@ class DocumentGNN(torch.nn.Module):
         return F.log_softmax(x, dim=1)
 
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # backend/scripts
-AI_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'ai'))  # backend/ai
+# ------------------------
+# Import model from package
+# ------------------------
 
-sys.path.insert(0, AI_DIR)
+from backend.ai.train_gnn import DocumentGNN
 
-from train_gnn import DocumentGNN
-
+# ------------------------
 # Load model
+# ------------------------
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # backend/scripts
+AI_DIR = os.path.abspath(os.path.join(BASE_DIR, '..', 'ai'))
 MODEL_PATH = os.path.join(AI_DIR, 'trained_gnn_model.pth')
+
 model = DocumentGNN()
 model.load_state_dict(torch.load(MODEL_PATH, map_location=torch.device('cpu')))
 model.eval()
@@ -167,11 +176,12 @@ def build_graph_from_document(data):
 
 def evaluate_structure_with_gnn(extracted_data):
     data = build_graph_from_document(extracted_data)
-    data.batch = torch.zeros(data.x.size(0), dtype=torch.long)  # Add batch info
+    data.batch = torch.zeros(data.x.size(0), dtype=torch.long)  # batch vector (all zero for single graph)
     with torch.no_grad():
         out = model(data)
     prediction = torch.argmax(out, dim=1).item()
     return prediction == 1
+
 # ------------------------
 # Fraud Score Calculation
 # ------------------------

@@ -8,6 +8,7 @@ import {
   FileSearch,
 } from "lucide-react";
 import AnimatedBackground from "../components/AnimatedBackground";
+import Navbar from "../components/Navbar";
 
 const API_BASE = "http://localhost:5000/api";
 
@@ -60,7 +61,7 @@ export default function AdminPanel() {
   return (
     <div className="relative min-h-screen bg-black">
       <AnimatedBackground />
-
+      <Navbar />
       <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -71,9 +72,9 @@ export default function AdminPanel() {
           <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-3xl shadow-2xl mb-6">
             <FileSearch className="w-12 h-12 text-black" />
           </div>
-          <h1 className="text-5xl font-extrabold text-white mb-3">
+          {/* <h1 className="text-5xl font-extrabold text-white mb-3">
             KYC Admin Dashboard
-          </h1>
+          </h1> */}
           <p className="text-xl text-slate-300 max-w-2xl mx-auto">
             Monitor and manage identity verification requests securely and in
             real time.

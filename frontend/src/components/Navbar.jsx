@@ -12,6 +12,13 @@ const Navbar = () => {
   const [userEmail, setUserEmail] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  const [userRole, setUserRole] = useState("user");
+
+  useEffect(() => {
+    const role = localStorage.getItem("role") || "user";
+    setUserRole(role);
+  }, [location]);
+
   // Sync auth state from localStorage on mount & route change
   useEffect(() => {
     let token = localStorage.getItem("token");
@@ -49,17 +56,37 @@ const Navbar = () => {
   );
 
   // ✅ Filter nav items
-  const filteredNavItems = navItems.filter((item) => {
-    // Hide "Sign In" on home page when logged in
-    if (isLoggedIn && item.name === "Sign In" && location.pathname === "/") {
-      return false;
-    }
-    // Hide Sign In/Login on restricted pages
-    if (hideAuthButtons && (item.name === "Sign In" || item.name === "Login")) {
-      return false;
-    }
-    return true;
-  });
+  // const filteredNavItems = navItems.filter((item) => {
+  //   // Hide "Sign In" on home page when logged in
+  //   if (isLoggedIn && item.name === "Sign In" && location.pathname === "/") {
+  //     return false;
+  //   }
+  //   // Hide Sign In/Login on restricted pages
+  //   if (hideAuthButtons && (item.name === "Sign In" || item.name === "Login")) {
+  //     return false;
+  //   }
+  //   return true;
+  // });
+
+  const filteredNavItems =
+    userRole === "admin"
+      ? [] // Hide all nav items for admin
+      : navItems.filter((item) => {
+          if (
+            isLoggedIn &&
+            item.name === "Sign In" &&
+            location.pathname === "/"
+          ) {
+            return false;
+          }
+          if (
+            hideAuthButtons &&
+            (item.name === "Sign In" || item.name === "Login")
+          ) {
+            return false;
+          }
+          return true;
+        });
 
   const handleLogout = () => {
     localStorage.clear();

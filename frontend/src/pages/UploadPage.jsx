@@ -168,17 +168,13 @@ export default function UploadPage({ onExtract }) {
     verificationResult.forEach((result) => {
       if (result.extractedData && typeof result.extractedData === "object") {
         if (result.type) {
-          // ✅ FIX: Prefer the whole object, not just result.extractedData[result.type]
           const docData = result.extractedData;
-
-          // Only include if it's an object
           if (docData && typeof docData === "object") {
             combinedExtractedData[result.type.toLowerCase()] = docData;
           }
         }
       }
 
-      // Collect fraud info
       fraudInfos.push({
         type: result.type,
         fraudScore: result.fraudScore,
@@ -280,16 +276,12 @@ export default function UploadPage({ onExtract }) {
         userInfo.gender,
       icon: User,
     },
-    {
-      label: "Email",
-      value: userInfo.email,
-      icon: Mail,
-    },
-    {
-      label: "Phone",
-      value: userInfo.phone,
-      icon: Phone,
-    },
+
+    // {
+    //   label: "Phone",
+    //   value: userInfo.phone,
+    //   icon: Phone,
+    // },
     {
       label: "Aadhaar Number",
       value: extractedData?.aadhaar?.aadhaar || "N/A",
@@ -411,7 +403,7 @@ export default function UploadPage({ onExtract }) {
               { label: "Full Name", name: "fullName", type: "text" },
               { label: "Date of Birth", name: "dob", type: "date" },
               { label: "Gender", name: "gender", type: "select" },
-              { label: "Email", name: "email", type: "email" },
+
               { label: "Mobile Number", name: "phone", type: "tel" },
             ].map(({ label, name, type }) => (
               <div key={name}>
@@ -564,43 +556,57 @@ export default function UploadPage({ onExtract }) {
             ))}
           </div>
         )}
-
         {/* Buttons */}
-        <div className="mt-10 flex flex-col md:flex-row gap-4 justify-center">
-          <button
-            disabled={processing || verifying}
-            onClick={handleExtract}
-            className={`flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors ${
-              processing
-                ? "bg-yellow-400/70 cursor-wait text-black"
-                : "bg-yellow-400 hover:bg-yellow-500 text-black"
-            }`}
-          >
-            <Sparkles className="w-6 h-6" />
-            {processing ? "Extracting Data..." : "Extract Data"}
-          </button>
+        <div className="mt-10 flex flex-col items-center gap-6">
+          {/* Action Buttons: Extract, Verify, Submit */}
+          <div className="flex flex-col md:flex-row flex-wrap justify-center gap-4 w-full md:w-auto">
+            <button
+              disabled={processing || verifying}
+              onClick={handleExtract}
+              className={`flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors ${
+                processing
+                  ? "bg-yellow-400/70 cursor-wait text-black"
+                  : "bg-yellow-400 hover:bg-yellow-500 text-black"
+              }`}
+            >
+              <Sparkles className="w-6 h-6" />
+              {processing ? "Extracting Data..." : "Extract Data"}
+            </button>
 
-          <button
-            disabled={verifying || processing}
-            onClick={handleVerifyDocs}
-            className={`flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors ${
-              verifying
-                ? "bg-emerald-400/70 cursor-wait text-black"
-                : "bg-emerald-400 hover:bg-emerald-500 text-black"
-            }`}
-          >
-            <Shield className="w-6 h-6" />
-            {verifying ? "Verifying..." : "Verify with AI"}
-          </button>
+            <button
+              disabled={verifying || processing}
+              onClick={handleVerifyDocs}
+              className={`flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors ${
+                verifying
+                  ? "bg-emerald-400/70 cursor-wait text-black"
+                  : "bg-emerald-400 hover:bg-emerald-500 text-black"
+              }`}
+            >
+              <Shield className="w-6 h-6" />
+              {verifying ? "Verifying..." : "Verify with AI"}
+            </button>
 
-          <button
-            disabled={processing || verifying}
-            onClick={submitKYC}
-            className="flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            <CheckCircle className="w-6 h-6" />
-            Submit KYC
-          </button>
+            <button
+              disabled={processing || verifying}
+              onClick={submitKYC}
+              className="flex items-center justify-center gap-3 rounded-xl px-10 py-4 text-lg font-semibold transition-colors bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              <CheckCircle className="w-6 h-6" />
+              Submit KYC
+            </button>
+          </div>
+
+          {/* View Dashboard Button (placed separately below) */}
+          {verificationResult?.length > 0 && (
+            <button
+              className="bg-indigo-500 hover:bg-indigo-600 text-white px-8 py-4 rounded-xl font-semibold"
+              onClick={() =>
+                navigate("/verify", { state: { verificationResult } })
+              }
+            >
+              View Verification Dashboard
+            </button>
+          )}
         </div>
       </div>
     </div>

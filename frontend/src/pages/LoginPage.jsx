@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 
 export default function LoginPage() {
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "", role: "user" });
+
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,12 +30,17 @@ export default function LoginPage() {
 
     try {
       const res = await api.login(form.email, form.password);
-
       if (res.token) {
         localStorage.setItem("token", res.token);
         localStorage.setItem("email", form.email);
+        localStorage.setItem("role", form.role); // Optional: store role
         console.log("Stored token and email in localStorage");
-        navigate("/upload");
+
+        if (form.role === "admin") {
+          navigate("/admin");
+        } else {
+          navigate("/upload");
+        }
       } else {
         setError("Invalid credentials. Please try again.");
       }
@@ -152,6 +158,24 @@ export default function LoginPage() {
                     )}
                   </button>
                 </div>
+              </div>
+              {/* Role Selection */}
+              <div>
+                <label
+                  htmlFor="role"
+                  className="block text-sm font-semibold text-slate-300 mb-2"
+                >
+                  Login as
+                </label>
+                <select
+                  id="role"
+                  value={form.role}
+                  onChange={(e) => setForm({ ...form, role: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700/50 rounded-xl focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 outline-none transition-all duration-300 text-white placeholder-slate-400 backdrop-blur-sm"
+                >
+                  <option value="user">User</option>
+                  <option value="admin">Admin</option>
+                </select>
               </div>
 
               {/* Remember Me & Forgot Password */}

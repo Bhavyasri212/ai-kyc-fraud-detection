@@ -13,15 +13,17 @@ import "chart.js/auto";
 
 import AnimatedBackground from "../components/AnimatedBackground";
 import Navbar from "../components/Navbar";
+import VerificationSummary from "../components/VerificationSummary.jsx";
 
 export default function VerificationDashboard() {
-  const { state } = useLocation();
-  const verificationResult = state?.verificationResult || {};
+  const location = useLocation();
+  const verificationResult = location.state?.verificationResult || [];
 
-  const aadhaarResult = verificationResult?.Aadhaar;
-  const panResult = verificationResult?.Pan;
+  const getValidScore = (score) => {
+    const num = Number(score);
+    return isNaN(num) ? 0 : Math.max(0, Math.min(100, num));
+  };
 
-  // Helper to generate chart data dynamically
   const createBarData = (score) => ({
     labels: ["Low Risk", "Medium Risk", "High Risk"],
     datasets: [
@@ -48,25 +50,27 @@ export default function VerificationDashboard() {
     ],
   });
 
-  const renderResultCard = (label, result) => {
-    if (!result) return null;
+  const renderResultCard = (result, index) => {
+    const score = getValidScore(result.fraudScore);
+    const isValid = score <= 30;
 
     return (
       <motion.div
+        key={index}
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="bg-slate-900/50 backdrop-blur-2xl border border-slate-800 rounded-3xl shadow-2xl p-8 text-white mb-10"
+        transition={{ duration: 0.5, delay: index * 0.2 }}
+        className="bg-slate-900/60 backdrop-blur-2xl border border-slate-800 rounded-2xl shadow-xl p-6 md:p-8 text-white"
       >
-        <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
+        <h2 className="text-xl md:text-2xl font-semibold mb-4 flex items-center gap-3 capitalize">
           <FileText className="w-6 h-6 text-amber-400" />
-          {label} Verification
+          {result.type} Verification
         </h2>
 
-        <div className="space-y-3 text-lg">
+        <div className="space-y-2 text-base md:text-lg">
           <p>
             <strong>Status:</strong>{" "}
-            {result.valid ? (
+            {isValid ? (
               <span className="text-green-400 flex items-center gap-2">
                 <CheckCircle className="w-5 h-5" /> Valid Document
               </span>
@@ -78,42 +82,82 @@ export default function VerificationDashboard() {
           </p>
 
           <p>
-            <strong>Risk Score:</strong>{" "}
+            <strong>Fraud Score:</strong>{" "}
             <span
               className={`font-bold ${
-                result.fraudScore > 70
+                score > 70
                   ? "text-red-400"
-                  : result.fraudScore > 30
+                  : score > 30
                   ? "text-yellow-400"
                   : "text-green-400"
               }`}
             >
-              {result.fraudScore ?? "--"}%
+              {score}%
             </span>
           </p>
 
           <p>
             <strong>Risk Level:</strong>{" "}
-            <span className="text-white">{result.riskCategory}</span>
+            <span className="text-white">{result.riskLevel || "--"}</span>
           </p>
 
-          {result.reason && (
-            <p className="text-red-400">
+          {result.reason?.length > 0 ? (
+            <div className="text-yellow-300 text-sm mt-2">
               <BadgeAlert className="w-5 h-5 inline-block mr-2" />
-              Reason: {result.reason}
-            </p>
+              Reasons:
+              <ul className="list-disc ml-6 mt-1">
+                {result.reason.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="text-gray-400 italic text-sm">No reasons provided.</p>
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+        {/* ✅ Chart Section Updated */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          {/* Bar Chart */}
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 h-[300px] overflow-hidden relative">
             <h3 className="text-white font-semibold mb-4">Fraud Risk Score</h3>
-            <Bar data={createBarData(result.fraudScore)} />
+            <div className="w-full h-[220px]">
+              <Bar
+                data={createBarData(score)}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: { beginAtZero: true, max: 100 },
+                  },
+                  plugins: {
+                    legend: { display: false },
+                  },
+                }}
+              />
+            </div>
           </div>
 
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+          {/* Pie Chart */}
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-4 h-[300px] overflow-hidden relative">
             <h3 className="text-white font-semibold mb-4">Document Validity</h3>
-            <Pie data={createPieData(result.valid)} />
+            <div className="w-full h-[220px]">
+              <Pie
+                data={createPieData(isValid)}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      position: "bottom",
+                      labels: {
+                        color: "#fff",
+                      },
+                    },
+                  },
+                }}
+              />
+            </div>
           </div>
         </div>
       </motion.div>
@@ -124,17 +168,25 @@ export default function VerificationDashboard() {
     <div className="min-h-screen bg-black relative">
       <AnimatedBackground />
       <Navbar />
-      <div className="pt-20 pb-16 px-4 sm:px-6 lg:px-8 relative z-10 max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-10 flex items-center gap-3">
+
+      <div className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 relative z-10 max-w-7xl mx-auto">
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-10 flex items-center gap-3">
           <Shield className="w-7 h-7 text-amber-400" />
           Verification Dashboard
         </h1>
 
-        {renderResultCard("Aadhaar", aadhaarResult)}
-        {renderResultCard("Pan", panResult)}
+        {verificationResult.length > 0 ? (
+          <>
+            <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
+              {verificationResult.map(renderResultCard)}
+            </div>
 
-        {!aadhaarResult && !panResult && (
-          <div className="text-center text-white text-lg">
+            <div className="mt-16">
+              <VerificationSummary results={verificationResult} />
+            </div>
+          </>
+        ) : (
+          <div className="text-center text-white text-lg mt-12">
             No verification data available.
           </div>
         )}
