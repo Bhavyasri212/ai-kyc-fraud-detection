@@ -1,4 +1,3 @@
-// frontend/src/services/api.js
 import axios from "axios";
 
 const API_BASE = "http://localhost:5000/api"; // Backend base URL
@@ -237,6 +236,39 @@ const api = {
         error.response?.data || error.message
       );
       throw error;
+    }
+  },
+  getDocumentStatus: async (documentId) => {
+    const token = getToken();
+
+    const response = await fetch(`/api/docs/${documentId}/status`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log(
+      `Fetching status for document ID: ${documentId}, response status: ${response.status}`
+    );
+
+    // Read the response body as text once
+    const text = await response.text();
+
+    if (!response.ok) {
+      console.error(`Error fetching document status:`, text);
+      throw new Error(
+        `Network response was not ok: ${response.status} ${response.statusText}`
+      );
+    }
+
+    try {
+      // Parse JSON from the text
+      const data = JSON.parse(text);
+      console.log("Document status data:", data);
+      return data.status;
+    } catch (err) {
+      console.error("Failed to parse JSON response:", text);
+      throw err;
     }
   },
 };

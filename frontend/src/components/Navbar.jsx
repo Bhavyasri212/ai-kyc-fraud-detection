@@ -20,20 +20,33 @@ export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const isAuthenticated = localStorage.getItem("token");
+  const role = localStorage.getItem("role"); // Get role from localStorage
 
   const handleLogout = () => {
     localStorage.clear();
     navigate("/");
   };
 
-  const navItems = [
-    { path: "/upload", label: "KYC Upload", icon: Upload },
-    { path: "/verify", label: "Dashboard", icon: BarChart3 },
+  const commonNavItems = [
+    { path: "/", label: "Home", icon: Home },
     { path: "/fraud-alerts", label: "Fraud Alerts", icon: AlertTriangle },
     { path: "/audit-trail", label: "Audit Trail", icon: FileText },
+  ];
+
+  const userNavItems = [
+    { path: "/upload", label: "KYC Upload", icon: Upload },
     { path: "/my-uploads", label: "My Documents", icon: User },
   ];
 
+  const adminNavItems = [{ path: "/admin", label: "KYC Requests", icon: User }];
+
+  // Select nav items based on role
+  const navItems =
+    role === "admin"
+      ? [...commonNavItems, ...adminNavItems]
+      : [...commonNavItems, ...userNavItems];
+
+  // If not authenticated, render nothing
   if (!isAuthenticated) {
     return null;
   }

@@ -45,24 +45,39 @@ router.get("/kyc-requests", authenticate, async (req, res, next) => {
 });
 
 // Approve or reject KYC
+// Approve, reject, or flag KYC
 router.post(
   "/kyc-requests/:id/:action",
   authenticate,
   async (req, res, next) => {
     const { id, action } = req.params;
-    if (!["approve", "reject"].includes(action)) {
+
+    if (!["approve", "reject", "flag-review"].includes(action)) {
       return res.status(400).json({ message: "Invalid action" });
     }
+
     try {
       const reqDoc = await KYCRequest.findById(id);
       if (!reqDoc) return res.status(404).json({ message: "Not found" });
-      if (reqDoc.status !== "pending")
+      if (reqDoc.status !== "pending") {
         return res.status(400).json({ message: "Already processed" });
+      }
 
-      reqDoc.status = action === "approve" ? "approved" : "rejected";
+      if (action === "approve") {
+        reqDoc.status = "approved";
+      } else if (action === "reject") {
+        reqDoc.status = "rejected";
+      } else if (action === "flag-review") {
+        reqDoc.status = "manual_review";
+        reqDoc.manualReviewFlaggedBy =
+          req.user?.name || req.user?.email || "admin";
+        reqDoc.manualReviewAt = new Date();
+      }
+
       await reqDoc.save();
       res.json(reqDoc);
     } catch (err) {
+      console.error("Error handling KYC action:", err);
       next(err);
     }
   }

@@ -6,7 +6,8 @@ const fraudAlertSchema = new mongoose.Schema({
   reason: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
   documentType: { type: String, required: true },
-  userId: { type: String, required: false }, // Made optional
+  amlFlags: [String],
+  amlAction: String,
   confidence: { type: Number, min: 0, max: 100, required: true },
 });
 

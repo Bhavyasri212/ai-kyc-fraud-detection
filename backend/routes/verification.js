@@ -1,3 +1,4 @@
+// ... top-of-file imports (existing)
 import express from "express";
 import multer from "multer";
 import Tesseract from "tesseract.js";
@@ -11,7 +12,10 @@ import KYCRequest from "../models/kyc.js";
 import crypto from "crypto";
 import { normalize } from "../utils/normalize.js";
 import FraudAlert from "../models/FraudAlert.js";
-import AuditLog from "../models/AuditLog.js"; // ✅ Add this
+import AuditLog from "../models/AuditLog.js";
+
+// NEW: AML rules module
+import applyAmlRules from "../rules/amlRules.js";
 
 const hashValue = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -125,16 +129,42 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
           const status = valid ? "Valid Document" : "Invalid Document";
           const fraudReasonList = [...reason, ...fraudReasons];
 
-          // ✅ Create FraudAlert if needed
-          if (finalRiskLevel !== "Low") {
+          // ----- NEW: Apply AML rules here, BEFORE final response -----
+          const amlResult = applyAmlRules({
+            extractedData,
+            isDuplicate,
+            fraudResult: {
+              fraud_score: fraudScore,
+              risk_level: finalRiskLevel,
+            },
+          });
+
+          const amlFlags = amlResult.amlFlags || [];
+          const amlAction = amlResult.amlAction || "clear";
+          const amlNotes = amlResult.notes || [];
+
+          // ✅ Create FraudAlert if needed (either model risk OR AML flags require action)
+          // We now escalate if:
+          //  - model risk is not Low OR
+          //  - amlAction is auto_flag or manual_review
+          const shouldCreateAlert =
+            finalRiskLevel !== "Low" ||
+            amlAction === "auto_flag" ||
+            amlAction === "manual_review";
+
+          if (shouldCreateAlert) {
             try {
               await FraudAlert.create({
                 caseId: `FR-${Date.now()}`,
                 riskLevel: finalRiskLevel,
-                reason: fraudReasonList.join(", "),
+                reason: [...fraudReasonList, ...amlFlags, ...amlNotes].join(
+                  ", "
+                ),
                 documentType,
                 userId: req.user?.id || "anonymous", // Fallback
                 confidence: Math.round(100 - fraudScore),
+                amlFlags, // record AML flags
+                amlAction,
               });
             } catch (alertError) {
               console.error("Failed to create FraudAlert:", alertError);
@@ -143,23 +173,29 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
 
           // ✅ Create Audit Log
           try {
+            const isAmlFlagged = amlAction === "auto_flag"; // adjust based on how you define this
+            const amlReasons = amlFlags?.length
+              ? `AML Auto Flag triggered: ${amlFlags.join(", ")}`
+              : "No AML flags";
+
             await AuditLog.create({
               user: req.user?.name || "System",
               action: "Fraud Verification",
-              status:
-                finalRiskLevel === "High"
-                  ? "warning"
-                  : valid
-                  ? "success"
-                  : "error",
-              details: `Fraud Score: ${fraudScore}% | Risk: ${finalRiskLevel}`,
+              status: isAmlFlagged
+                ? "error"
+                : finalRiskLevel === "High"
+                ? "warning"
+                : valid
+                ? "success"
+                : "error",
+              details: `Fraud Score: ${fraudScore}% | Risk: ${finalRiskLevel} | ${amlReasons}`,
               ipAddress: req.ip || "Internal",
             });
           } catch (auditErr) {
             console.error("Audit log failed:", auditErr);
           }
 
-          // ✅ Final Response
+          // ✅ Final Response includes AML flags & action
           return res.json({
             id: uuidv4(),
             timestamp: new Date(),
@@ -171,6 +207,9 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
             extractedData,
             ocrTextSnippet: rawText.slice(0, 200),
             isDuplicate,
+            aml_flags: amlFlags,
+            aml_action: amlAction,
+            aml_notes: amlNotes,
           });
         } catch (parseError) {
           console.error("Error parsing Python output:", parseError);

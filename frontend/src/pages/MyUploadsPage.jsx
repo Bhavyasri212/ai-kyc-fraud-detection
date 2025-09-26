@@ -8,6 +8,8 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Filter,
+  TrendingUp,
 } from "lucide-react";
 
 import AnimatedBackground from "../components/AnimatedBackground";
@@ -100,224 +102,356 @@ export default function MyUploadsPage() {
     rejected: uploads.filter((doc) => doc.status === "rejected").length,
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.5,
+      },
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-black p-4">
+    <div className="min-h-screen bg-black">
       <AnimatedBackground />
       <Navbar />
-
-      <div className="w-full max-w-6xl mx-auto relative z-10">
-        {/* Header */}
+      <div className="h-24" />
+      <div className="w-full max-w-7xl mx-auto relative z-10 px-6 py-10">
+        {/* Enhanced Header */}
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
+          initial={{ opacity: 0, y: -30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="text-center mb-8"
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="text-center mb-14"
         >
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-white via-slate-100 to-yellow-300 bg-clip-text text-transparent mb-2">
-            My Document Uploads
-          </h1>
-          <div className="flex items-center justify-center gap-2">
-            <p className="text-slate-400">
-              Manage and track your document verification status
+          <motion.div
+            className="flex items-center justify-center gap-4 mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            <div className="h-px w-20 bg-gradient-to-r from-transparent to-yellow-400"></div>
+            <p className="text-slate-300 text-lg font-medium tracking-wide">
+              Manage and track your document verification journey
             </p>
-            <Sparkles className="w-4 h-4 text-yellow-400" />
-          </div>
+            <Sparkles className="w-5 h-5 text-yellow-400 animate-pulse" />
+            <div className="h-px w-20 bg-gradient-to-l from-transparent to-yellow-400"></div>
+          </motion.div>
         </motion.div>
 
-        {/* Stats Cards */}
+        {/* Enhanced Stats Cards */}
         {!loading && uploads.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            <StatCard
-              title="Total Documents"
-              value={stats.total.toString()}
-              icon={FileCheck}
-              color="blue"
-              delay={0.1}
-            />
-            <StatCard
-              title="Approved"
-              value={stats.approved.toString()}
-              icon={FileCheck}
-              color="green"
-              delay={0.2}
-            />
-            <StatCard
-              title="Pending Review"
-              value={stats.pending.toString()}
-              icon={Clock}
-              color="yellow"
-              delay={0.3}
-            />
-            <StatCard
-              title="Rejected"
-              value={stats.rejected.toString()}
-              icon={AlertCircle}
-              color="red"
-              delay={0.4}
-            />
-          </div>
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
+          >
+            <motion.div variants={itemVariants}>
+              <StatCard
+                title="Total Documents"
+                value={stats.total.toString()}
+                icon={FileCheck}
+                color="blue"
+                delay={0.1}
+              />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <StatCard
+                title="Approved"
+                value={stats.approved.toString()}
+                icon={FileCheck}
+                color="green"
+                delay={0.2}
+              />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <StatCard
+                title="Pending Review"
+                value={stats.pending.toString()}
+                icon={Clock}
+                color="yellow"
+                delay={0.3}
+              />
+            </motion.div>
+            <motion.div variants={itemVariants}>
+              <StatCard
+                title="Rejected"
+                value={stats.rejected.toString()}
+                icon={AlertCircle}
+                color="red"
+                delay={0.4}
+              />
+            </motion.div>
+          </motion.div>
         )}
 
-        {/* Main Card */}
+        {/* Enhanced Main Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="relative bg-slate-900/50 backdrop-blur-2xl rounded-3xl shadow-2xl border border-slate-800 p-8"
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="relative group"
         >
-          {/* Card Header */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <h2 className="text-xl font-semibold text-white">Document List</h2>
+          <div className="absolute -inset-1 bg-gradient-to-r from-yellow-600/20 via-orange-600/20 to-yellow-600/20 rounded-3xl opacity-75 group-hover:opacity-100 transition-opacity blur-lg"></div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
-              {uploads.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search documents..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-yellow-400 transition-colors"
-                    />
+          <div className="relative bg-slate-900/50 backdrop-blur-2xl rounded-3xl shadow-2xl border border-slate-800 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent pointer-events-none"></div>
+
+            <div className="relative p-8">
+              {/* Enhanced Card Header */}
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-8 mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl border border-yellow-500/30">
+                    <TrendingUp className="w-6 h-6 text-yellow-400" />
                   </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white mb-1">
+                      Document Management
+                    </h2>
+                    <p className="text-slate-400 text-sm">
+                      Track and manage your verification process
+                    </p>
+                  </div>
+                </div>
 
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-yellow-400 transition-colors"
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full lg:w-auto">
+                  {uploads.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                      {/* Enhanced Search */}
+                      <motion.div
+                        className="relative group/search"
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 group-hover/search:text-yellow-400 transition-colors z-10" />
+                        <input
+                          type="text"
+                          placeholder="Search documents..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full sm:w-72 pl-12 pr-4 py-3.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 backdrop-blur-sm transition-all duration-300 font-medium"
+                        />
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-600/10 to-orange-600/10 opacity-0 group-hover/search:opacity-100 transition-opacity pointer-events-none"></div>
+                      </motion.div>
+
+                      {/* Enhanced Filter */}
+                      <motion.div
+                        className="relative group/filter"
+                        whileHover={{ scale: 1.02 }}
+                      >
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="appearance-none w-full sm:w-auto pl-4 pr-10 py-3.5 bg-slate-800/50 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 backdrop-blur-sm transition-all cursor-pointer font-medium"
+                        >
+                          <option value="all">All Status</option>
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                        <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 group-hover/filter:text-yellow-400 transition-colors pointer-events-none" />
+                        <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-600/10 to-orange-600/10 opacity-0 group-hover/filter:opacity-100 transition-opacity pointer-events-none"></div>
+                      </motion.div>
+                    </div>
+                  )}
+
+                  {/* Enhanced Action Buttons */}
+                  <div className="flex items-center gap-3">
+                    <motion.button
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="group flex items-center gap-2 px-5 py-3.5 bg-slate-700/50 hover:bg-slate-600/50 text-white rounded-xl transition-all border border-slate-600/30 hover:border-slate-500/50 backdrop-blur-sm disabled:opacity-50 font-medium"
+                    >
+                      <RefreshCw
+                        className={`w-4 h-4 transition-all ${
+                          refreshing ? "animate-spin" : "group-hover:rotate-180"
+                        }`}
+                      />
+                      <span className="hidden sm:inline">Refresh</span>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.05, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setShowUploadModal(true)}
+                      className="group relative flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-bold rounded-xl transition-all shadow-lg hover:shadow-yellow-500/25 overflow-hidden"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      <Plus className="w-4 h-4 relative z-10 group-hover:rotate-90 transition-transform" />
+                      <span className="relative z-10">Upload New</span>
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Enhanced Content */}
+              {loading ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center justify-center py-20"
+                >
+                  <div className="relative mb-6">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400"></div>
+                    <div className="absolute inset-0 animate-ping rounded-full h-12 w-12 border border-yellow-400/30"></div>
+                  </div>
+                  <p className="text-slate-300 text-lg font-medium">
+                    Loading your documents...
+                  </p>
+                  <div className="mt-4 w-48 h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full animate-pulse"></div>
+                  </div>
+                </motion.div>
+              ) : error ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="text-center py-20"
+                >
+                  <div className="relative mb-8">
+                    <AlertCircle className="w-16 h-16 text-red-400 mx-auto" />
+                    <div className="absolute inset-0 animate-pulse rounded-full bg-red-400/20 blur-xl"></div>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    Something went wrong
+                  </h3>
+                  <p className="text-red-400 text-lg mb-8 max-w-md mx-auto">
+                    {error}
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleRefresh}
+                    className="px-8 py-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-semibold rounded-xl transition-all shadow-lg"
                   >
-                    <option value="all">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
+                    Try Again
+                  </motion.button>
+                </motion.div>
+              ) : uploads.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center py-20"
+                >
+                  <div className="relative mb-10">
+                    <div className="w-24 h-24 mx-auto bg-gradient-to-br from-yellow-500/20 to-orange-500/20 rounded-3xl flex items-center justify-center border border-yellow-500/30">
+                      <FileCheck className="w-12 h-12 text-slate-400" />
+                    </div>
+                    <div className="absolute inset-0 animate-pulse rounded-3xl bg-yellow-400/10 blur-xl"></div>
+                  </div>
+                  <h3 className="text-3xl font-bold text-white mb-4">
+                    Ready to get started?
+                  </h3>
+                  <p className="text-slate-300 mb-10 max-w-lg mx-auto text-lg leading-relaxed">
+                    Upload your first document and begin the verification
+                    process. We support PDF, JPEG, and PNG files up to 10MB.
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowUploadModal(true)}
+                    className="group relative px-10 py-5 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-bold rounded-xl transition-all shadow-lg hover:shadow-yellow-500/25 overflow-hidden text-lg"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <span className="relative z-10 flex items-center gap-3">
+                      <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform" />
+                      Upload Your First Document
+                    </span>
+                  </motion.button>
+                </motion.div>
+              ) : filteredUploads.length === 0 ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-20"
+                >
+                  <div className="relative mb-8">
+                    <Search className="w-16 h-16 text-slate-500 mx-auto" />
+                    <div className="absolute inset-0 animate-pulse rounded-full bg-slate-400/10 blur-xl"></div>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-3">
+                    No documents found
+                  </h3>
+                  <p className="text-slate-400 mb-8 max-w-md mx-auto text-lg">
+                    Try adjusting your search terms or filter criteria to find
+                    what you're looking for.
+                  </p>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setSearchTerm("");
+                      setStatusFilter("all");
+                    }}
+                    className="px-6 py-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white font-semibold rounded-xl transition-all"
+                  >
+                    Clear All Filters
+                  </motion.button>
+                </motion.div>
+              ) : (
+                <div className="space-y-5">
+                  <div className="flex items-center justify-between mb-6">
+                    <p className="text-slate-400 font-medium">
+                      Showing {filteredUploads.length} of {uploads.length}{" "}
+                      documents
+                    </p>
+                  </div>
+                  <AnimatePresence mode="popLayout">
+                    {filteredUploads.map((doc, index) => (
+                      <motion.div
+                        key={doc._id || doc.id || doc.filename}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                        transition={{ delay: index * 0.05 }}
+                      >
+                        <DocumentCard
+                          doc={doc}
+                          onDelete={handleDelete}
+                          onResubmit={handleResubmit}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
-
-              <div className="flex items-center gap-2">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
-                  />
-                  Refresh
-                </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowUploadModal(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-medium rounded-lg transition-all"
-                >
-                  <Plus className="w-4 h-4" />
-                  Upload New
-                </motion.button>
-              </div>
             </div>
           </div>
-
-          {/* Content */}
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400"></div>
-              <p className="text-slate-400 ml-3">Loading your uploads...</p>
-            </div>
-          ) : error ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-              <p className="text-red-400 text-lg mb-2">{error}</p>
-              <button
-                onClick={handleRefresh}
-                className="text-yellow-400 hover:text-yellow-300 transition-colors"
-              >
-                Try again
-              </button>
-            </motion.div>
-          ) : uploads.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <FileCheck className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-white mb-2">
-                No documents yet
-              </h3>
-              <p className="text-slate-400 mb-6">
-                Start by uploading your first document for verification
-              </p>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowUploadModal(true)}
-                className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-black font-medium rounded-lg transition-all"
-              >
-                Upload Document
-              </motion.button>
-            </motion.div>
-          ) : filteredUploads.length === 0 ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center py-12"
-            >
-              <Search className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">
-                No documents found
-              </h3>
-              <p className="text-slate-400 mb-4">
-                Try adjusting your search or filter criteria
-              </p>
-              <button
-                onClick={() => {
-                  setSearchTerm("");
-                  setStatusFilter("all");
-                }}
-                className="text-yellow-400 hover:text-yellow-300 transition-colors"
-              >
-                Clear filters
-              </button>
-            </motion.div>
-          ) : (
-            <div className="space-y-4">
-              <AnimatePresence mode="popLayout">
-                {filteredUploads.map((doc) => (
-                  <DocumentCard
-                    key={doc._id || doc.id || doc.filename}
-                    doc={doc}
-                    onDelete={handleDelete}
-                    onResubmit={handleResubmit}
-                  />
-                ))}
-              </AnimatePresence>
-            </div>
-          )}
         </motion.div>
 
-        {/* Footer */}
+        {/* Enhanced Footer */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="text-center mt-8 text-sm text-slate-500"
+          transition={{ duration: 0.8, delay: 0.4 }}
+          className="text-center mt-16"
         >
-          <p>
-            © 2024 SecureKYC. All rights reserved. | Need help?{" "}
-            <a href="#" className="text-yellow-400 hover:text-yellow-300">
+          <div className="inline-flex items-center gap-6 text-sm text-slate-500 bg-slate-900/30 backdrop-blur-sm px-8 py-4 rounded-2xl border border-slate-800">
+            <span className="font-medium">
+              © 2024 SecureKYC. All rights reserved.
+            </span>
+            <span className="w-px h-4 bg-slate-700"></span>
+            <a
+              href="#"
+              className="text-yellow-400 hover:text-yellow-300 transition-colors font-medium"
+            >
               Contact Support
             </a>
-          </p>
+          </div>
         </motion.div>
       </div>
 

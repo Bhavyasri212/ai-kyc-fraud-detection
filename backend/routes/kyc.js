@@ -35,7 +35,6 @@ router.post("/submit", protect, async (req, res) => {
     const aadhaar = normalize(rawAadhaar);
     const pan = normalize(rawPan);
 
-    // Compute hashes
     const aadhaarHash = aadhaar ? hashValue(aadhaar) : null;
     const panHash = pan ? hashValue(pan) : null;
 
@@ -44,21 +43,48 @@ router.post("/submit", protect, async (req, res) => {
       $or: [
         aadhaarHash ? { aadhaarHash } : null,
         panHash ? { panHash } : null,
-      ].filter(Boolean), // remove nulls
+      ].filter(Boolean),
     });
 
     const isDuplicate = !!duplicate;
-
-    // Mark is_duplicate in the extractedData (used by Python)
     extractedData.is_duplicate = isDuplicate;
 
-    // ✅ Prepare final payload
+    // ✅ Build fraudInfo (from frontend or fallback)
+    let fraudInfo = req.body.fraudInfo || [];
+
+    // ✅ Add AML auto-flag rule if duplicate found
+    if (isDuplicate) {
+      fraudInfo.push({
+        type: "aml",
+        fraudScore: 100,
+        riskLevel: "high",
+        amlFlags: [
+          aadhaarHash ? "duplicate_aadhaar" : null,
+          panHash ? "duplicate_pan" : null,
+        ].filter(Boolean),
+        amlAction: "auto_flag",
+        reasons: ["Duplicate Aadhaar or PAN found in existing KYC"],
+      });
+    }
+
+    // Set KYC status based on AML or fraud rules
+    let status = "pending";
+    let rejectionReason = "";
+
+    if (isDuplicate) {
+      status = "Rejected – AML Rule Triggered";
+      rejectionReason = "AML Auto Flag triggered: Duplicate Aadhaar or PAN";
+    }
+
     const kycData = {
       ...req.body,
       userId,
       extractedData,
+      fraudInfo,
       aadhaarHash,
       panHash,
+      status,
+      rejectionReason,
     };
 
     const newKYC = new KYCRequest(kycData);

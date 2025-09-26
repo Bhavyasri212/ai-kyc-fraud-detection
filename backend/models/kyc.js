@@ -17,16 +17,17 @@ const KYCRequestSchema = new mongoose.Schema(
       default: {},
     },
 
-    // ✅ Add these fields for duplicate detection
     aadhaarHash: { type: String, index: true },
     panHash: { type: String, index: true },
 
     fraudInfo: [
       {
-        type: { type: String }, // e.g., "aadhaar", "pan"
+        type: { type: String },
         fraudScore: Number,
         riskLevel: String,
         reasons: [String],
+        amlFlags: [String],
+        amlAction: String,
       },
     ],
 
@@ -44,9 +45,23 @@ const KYCRequestSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: [
+        "pending",
+        "approved",
+        "rejected",
+        "manual_review",
+        "Rejected – AML Rule Triggered", // ✅ New enum value
+      ],
       default: "pending",
     },
+
+    rejectionReason: {
+      // ✅ New field
+      type: String,
+    },
+
+    manualReviewFlaggedBy: String,
+    manualReviewAt: Date,
   },
   { timestamps: true }
 );

@@ -1,13 +1,34 @@
-import torch
-import torch.nn.functional as F
-from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader 
-from torch_geometric.nn import GCNConv, global_mean_pool
+import os
 import random
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torch_geometric.data import Data, Dataset
+from torch_geometric.loader import DataLoader
+from torch_geometric.nn import GCNConv, global_mean_pool
+from pymongo import MongoClient
+from dotenv import load_dotenv
 
 # ------------------------
-# Set random seed for reproducibility
+# Load environment variables
+# ------------------------
+load_dotenv()
+MONGO_URI = os.getenv("MONGO_URI")
+MONGO_DB = os.getenv("MONGO_DB")
+MONGO_COLLECTION = os.getenv("MONGO_COLLECTION")
+
+def test_mongo_connection():
+    collection = get_mongo_collection()
+    print(f"Using collection: {collection.full_name}")
+    count = collection.count_documents({})
+    print(f"Documents count: {count}")
+    sample = collection.find_one()
+    print(f"Sample document:\n{sample}")
+
+
+
+# ------------------------
+# Set random seed
 # ------------------------
 def set_seed(seed=42):
     random.seed(seed)
@@ -19,81 +40,127 @@ def set_seed(seed=42):
 set_seed()
 
 # ------------------------
-# Generate Dummy Graph Dataset
+# MongoDB Connector
 # ------------------------
-
-def generate_dummy_graph(label):
-    # label: 0 = genuine, 1 = fraudulent
-    # Create 4 nodes with 3 features each (random)
-    x = torch.randn((4, 3), dtype=torch.float)
-
-    # Simple edges (undirected)
-    edge_index = torch.tensor(
-        [[0, 1, 2, 3, 0],
-         [1, 0, 3, 2, 2]], dtype=torch.long
-    )
-
-    y = torch.tensor([label], dtype=torch.long)  # Graph label
-
-    return Data(x=x, edge_index=edge_index, y=y)
+def get_mongo_collection(uri=MONGO_URI, db_name=MONGO_DB, collection_name=MONGO_COLLECTION):
+    client = MongoClient(uri)
+    db = client[db_name]
+    return db[collection_name]
 
 # ------------------------
-# Model Definition
+# Convert hash string to features
 # ------------------------
+def hash_to_features(hash_str, dims=8):
+    nums = []
+    hash_str = hash_str or ""
+    for i in range(dims):
+        chunk = hash_str[i*4:(i+1)*4]
+        if len(chunk) == 0:
+            nums.append(0)
+        else:
+            try:
+                nums.append(int(chunk, 16) % 1000 / 1000.0)
+            except:
+                nums.append(0)
+    return nums
 
+
+# ------------------------
+# Custom Dataset
+# ------------------------
+class FraudGraphDataset(Dataset):
+    def __init__(self, collection, root=None):
+        super().__init__(root)
+
+        self.records = list(collection.find({
+            "aadhaarHash": {"$exists": True, "$ne": None},
+            "panHash": {"$exists": True, "$ne": None}
+        }))
+
+        print(f"📦 Loaded {len(self.records)} records from MongoDB.")
+
+    def __len__(self):
+        return len(self.records)
+
+    def __getitem__(self, idx):
+        record = self.records[idx]
+
+        aadhaar_hash = record.get("aadhaarHash", "")
+        pan_hash = record.get("panHash", "")
+
+        user_feats = [0.5] * 8  # match hash_to_features length (8)
+        aadhaar_feats = hash_to_features(aadhaar_hash)
+        pan_feats = hash_to_features(pan_hash)
+
+        x = torch.tensor([user_feats, aadhaar_feats, pan_feats], dtype=torch.float)
+
+        edge_index = torch.tensor([[0, 0, 1],
+                                [1, 2, 0]], dtype=torch.long)
+
+        is_fraud = 1 if record.get("fraudInfo") and len(record["fraudInfo"]) > 0 else 0
+        y = torch.tensor([is_fraud], dtype=torch.long)
+
+        return Data(x=x, edge_index=edge_index, y=y)
+
+
+# ------------------------
+# GNN Model
+# ------------------------
 class DocumentGNN(torch.nn.Module):
-    def __init__(self):
-        super(DocumentGNN, self).__init__()
-        self.conv1 = GCNConv(3, 16)
-        self.conv2 = GCNConv(16, 32)
-        self.fc = torch.nn.Linear(32, 2)  # 2 classes
+    def __init__(self, in_feats=3, hidden1=16, hidden2=32, num_classes=2):
+        super().__init__()
+        self.conv1 = GCNConv(in_feats, hidden1)
+        self.conv2 = GCNConv(hidden1, hidden2)
+        self.fc = torch.nn.Linear(hidden2, num_classes)
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x = F.relu(self.conv1(x, edge_index))
         x = F.relu(self.conv2(x, edge_index))
-        x = global_mean_pool(x, batch)  # Pool node features per graph
-        x = self.fc(x)
-        return F.log_softmax(x, dim=1)
+        x = global_mean_pool(x, batch)
+        return F.log_softmax(self.fc(x), dim=1)
 
 # ------------------------
-# Training Loop
+# Training Function
 # ------------------------
-
 def train():
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = DocumentGNN().to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-    criterion = torch.nn.NLLLoss()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Create dataset: 100 genuine and 100 fraudulent graphs
-    dataset = []
-    for _ in range(100):
-        dataset.append(generate_dummy_graph(0))  # genuine
-        dataset.append(generate_dummy_graph(1))  # fraudulent
+    collection = get_mongo_collection()
+    dataset = FraudGraphDataset(collection)
+
+    if len(dataset) == 0:
+        print("⚠️ No data found in MongoDB collection.")
+        return
+
+    print(f"📊 Loaded {len(dataset)} records from MongoDB.")
 
     loader = DataLoader(dataset, batch_size=16, shuffle=True)
 
+    model = DocumentGNN(in_feats=dataset[0].x.shape[1]).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    criterion = torch.nn.NLLLoss()
+
     model.train()
-    for epoch in range(50):
+    for epoch in range(1, 51):
         total_loss = 0
         for batch in loader:
             batch = batch.to(device)
             optimizer.zero_grad()
-            out = model(batch)  # shape: [batch_size, num_classes]
-            loss = criterion(out, batch.y)  # batch.y shape: [batch_size]
+            out = model(batch)
+            loss = criterion(out, batch.y)
             loss.backward()
             optimizer.step()
             total_loss += loss.item()
-        print(f"Epoch {epoch + 1}/50, Loss: {total_loss / len(loader):.4f}")
+        avg_loss = total_loss / len(loader)
+        print(f"Epoch {epoch}/50 - Loss: {avg_loss:.4f}")
 
-    # Save the model state_dict only (best practice)
     torch.save(model.state_dict(), "trained_gnn_model.pth")
-    print("Training complete. Model saved as 'trained_gnn_model.pth'.")
+    print("✅ Model trained and saved as 'trained_gnn_model.pth'.")
 
 # ------------------------
-# Main
+# Entry Point
 # ------------------------
-
 if __name__ == "__main__":
+    test_mongo_connection()
     train()

@@ -56,7 +56,17 @@ export default function AdminPanel() {
       setKycRequests((prev) =>
         prev.map((req) =>
           req._id === id
-            ? { ...req, status: action === "approve" ? "approved" : "rejected" }
+            ? {
+                ...req,
+                status:
+                  action === "approve"
+                    ? "approved"
+                    : action === "reject"
+                    ? "rejected"
+                    : action === "flag-review"
+                    ? "manual_review"
+                    : req.status,
+              }
             : req
         )
       );
@@ -71,6 +81,8 @@ export default function AdminPanel() {
         return "text-green-400";
       case "rejected":
         return "text-red-400";
+      case "manual_review":
+        return "text-yellow-300";
       case "pending":
         return "text-yellow-400";
       default:
@@ -339,6 +351,15 @@ export default function AdminPanel() {
                           >
                             <ShieldX className="w-4 h-4 mr-2" />
                             Reject
+                          </button>
+
+                          {/* ✅ NEW BUTTON */}
+                          <button
+                            onClick={() => handleAction(req._id, "flag-review")}
+                            className="w-full px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg flex items-center justify-center transition-colors"
+                          >
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            Flag for Manual Review
                           </button>
                         </div>
                       ) : (
