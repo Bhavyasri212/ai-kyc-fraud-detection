@@ -13,6 +13,9 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import PrivateRoute from "../components/PrivateRoute";
 import AdminPanel from "../pages/AdminPanel";
+import MyUploadsPage from "../pages/MyUploadsPage";
+import FraudAlerts from "../pages/FraudAlerts";
+import AuditTrail from "../pages/AuditTrail";
 function RouterWrapper() {
   const [aadhaarData, setAadhaarData] = useState(null);
   const navigate = useNavigate();
@@ -37,6 +40,9 @@ function RouterWrapper() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/loading" element={<LoadingPage />} />
         <Route path="/admin" element={<AdminPanel />} />
+        <Route path="/my-uploads" element={<MyUploadsPage />} />
+        <Route path="/fraud-alerts" element={<FraudAlerts />} />
+        <Route path="/audit-trail" element={<AuditTrail />} />
         <Route
           path="/results"
           element={

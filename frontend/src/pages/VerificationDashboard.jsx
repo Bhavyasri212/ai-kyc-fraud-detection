@@ -167,23 +167,21 @@ export default function VerificationDashboard() {
   return (
     <div className="min-h-screen bg-black relative">
       <AnimatedBackground />
-      <Navbar />
 
+      <Navbar />
+      <VerificationSummary results={verificationResult} />
       <div className="pt-24 pb-16 px-4 sm:px-6 lg:px-8 relative z-10 max-w-7xl mx-auto">
-        <h1 className="text-3xl md:text-4xl font-bold text-white mb-10 flex items-center gap-3">
-          <Shield className="w-7 h-7 text-amber-400" />
-          Verification Dashboard
-        </h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-white mb-10 flex items-center gap-3"></h1>
 
         {verificationResult.length > 0 ? (
           <>
             <div className="grid gap-8 grid-cols-1 md:grid-cols-2">
               {verificationResult.map(renderResultCard)}
             </div>
-
+            {/* 
             <div className="mt-16">
               <VerificationSummary results={verificationResult} />
-            </div>
+            </div> */}
           </>
         ) : (
           <div className="text-center text-white text-lg mt-12">

@@ -10,6 +10,9 @@ import docRoutes from "./routes/docRoutes.js";
 import verificationRoutes from "./routes/verification.js";
 import kycRoutes from "./routes/kyc.js"; // KYC routes
 import adminRoutes from "./routes/adminRoutes.js";
+import docsRouter from "./routes/docRoutes.js";
+import FraudAlertRoutes from "./routes/FraudAlertRoutes.js"; // Fraud alert routes
+import auditLogRoutes from "./routes/auditLogs.js";
 
 // Load environment variables
 dotenv.config();
@@ -32,6 +35,9 @@ app.use("/api/docs", docRoutes);
 app.use("/api/verification", verificationRoutes);
 app.use("/api/kyc", kycRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/docs", docsRouter);
+app.use("/api/alerts", FraudAlertRoutes); // Use fraud alert routes
+app.use("/api/audit-logs", auditLogRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error("Server error:", err.stack);

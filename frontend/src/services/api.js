@@ -26,6 +26,70 @@ axiosInstance.interceptors.request.use(
 
 const api = {
   /**
+   * Delete a document by ID
+   * @param {string} documentId
+   */
+  deleteDocument: async (documentId) => {
+    try {
+      const res = await axiosInstance.delete(`/docs/${documentId}`);
+      return res.data;
+    } catch (error) {
+      console.error(
+        "Delete document failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Preview document by ID
+   * Returns a URL to open the preview
+   * @param {string} documentId
+   */
+  previewDocument: async (documentId) => {
+    try {
+      // Assuming backend returns a URL to preview
+      const res = await axiosInstance.get(`/docs/${documentId}/preview`);
+      return res.data.previewUrl; // adjust based on your backend response
+    } catch (error) {
+      console.error(
+        "Preview document failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
+  },
+
+  /**
+   * Download document by ID
+   * Triggers download in browser
+   * @param {string} documentId
+   */
+  downloadDocument: async (documentId) => {
+    try {
+      const res = await axiosInstance.get(`/docs/${documentId}/download`, {
+        responseType: "blob",
+      });
+
+      // Create a blob URL and trigger download
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      // You can get filename from headers or generate one:
+      link.setAttribute("download", `document_${documentId}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error(
+        "Download document failed:",
+        error.response?.data || error.message
+      );
+      throw error;
+    }
+  },
+  /**
    * Login user
    */
   login: async (email, password) => {

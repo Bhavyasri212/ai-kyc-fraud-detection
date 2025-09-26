@@ -6,6 +6,12 @@ import {
   ShieldX,
   ShieldCheck,
   FileSearch,
+  User,
+  Calendar,
+  Phone,
+  Mail,
+  CreditCard,
+  MapPin,
 } from "lucide-react";
 import AnimatedBackground from "../components/AnimatedBackground";
 import Navbar from "../components/Navbar";
@@ -16,6 +22,7 @@ export default function AdminPanel() {
   const [kycRequests, setKycRequests] = useState([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   const token = localStorage.getItem("token");
 
@@ -58,26 +65,181 @@ export default function AdminPanel() {
     }
   };
 
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "approved":
+        return "text-green-400";
+      case "rejected":
+        return "text-red-400";
+      case "pending":
+        return "text-yellow-400";
+      default:
+        return "text-slate-400";
+    }
+  };
+
+  const getFraudScoreColor = (score) => {
+    if (score <= 30) return "text-green-400";
+    if (score <= 70) return "text-yellow-400";
+    return "text-red-400";
+  };
+
+  const renderUserInfo = (userInfo) => {
+    if (!userInfo) return <span className="text-slate-400">No user info</span>;
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center text-sm">
+          <User className="w-4 h-4 mr-2 text-amber-400" />
+          <span className="text-white font-medium">
+            {userInfo.fullName || "N/A"}
+          </span>
+        </div>
+        {userInfo.email && (
+          <div className="flex items-center text-sm">
+            <Mail className="w-4 h-4 mr-2 text-blue-400" />
+            <span className="text-slate-300">{userInfo.email}</span>
+          </div>
+        )}
+        {userInfo.phone && (
+          <div className="flex items-center text-sm">
+            <Phone className="w-4 h-4 mr-2 text-green-400" />
+            <span className="text-slate-300">{userInfo.phone}</span>
+          </div>
+        )}
+        {userInfo.dob && (
+          <div className="flex items-center text-sm">
+            <Calendar className="w-4 h-4 mr-2 text-purple-400" />
+            <span className="text-slate-300">{userInfo.dob}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderExtractedData = (extractedData) => {
+    if (!extractedData || Object.keys(extractedData).length === 0) {
+      return <span className="text-slate-400 italic">No extracted data</span>;
+    }
+
+    return (
+      <div className="space-y-3">
+        {Object.entries(extractedData).map(([docType, data]) => (
+          <div
+            key={docType}
+            className="bg-slate-800/50 p-3 rounded-lg border border-slate-700"
+          >
+            <h4 className="text-amber-400 font-semibold mb-2 capitalize">
+              {docType}
+            </h4>
+            <div className="space-y-1 text-sm">
+              {data.name && (
+                <div className="flex items-center">
+                  <User className="w-3 h-3 mr-2 text-blue-400" />
+                  <span className="text-slate-300">{data.name}</span>
+                </div>
+              )}
+              {data.aadhaar && (
+                <div className="flex items-center">
+                  <CreditCard className="w-3 h-3 mr-2 text-green-400" />
+                  <span className="text-slate-300">
+                    Aadhaar: {data.aadhaar}
+                  </span>
+                </div>
+              )}
+              {data.pan && (
+                <div className="flex items-center">
+                  <CreditCard className="w-3 h-3 mr-2 text-purple-400" />
+                  <span className="text-slate-300">PAN: {data.pan}</span>
+                </div>
+              )}
+              {data.dob && (
+                <div className="flex items-center">
+                  <Calendar className="w-3 h-3 mr-2 text-yellow-400" />
+                  <span className="text-slate-300">DOB: {data.dob}</span>
+                </div>
+              )}
+              {data.address && (
+                <div className="flex items-center">
+                  <MapPin className="w-3 h-3 mr-2 text-red-400" />
+                  <span className="text-slate-300">
+                    Address: {data.address}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderFraudInfo = (fraudInfo) => {
+    if (!fraudInfo || fraudInfo.length === 0) {
+      return <span className="text-slate-400 italic">No fraud analysis</span>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {fraudInfo.map((info, index) => (
+          <div
+            key={index}
+            className="bg-slate-800/50 p-3 rounded-lg border border-slate-700"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-amber-400 font-semibold capitalize">
+                {info.type}
+              </span>
+              <span
+                className={`font-bold ${getFraudScoreColor(info.fraudScore)}`}
+              >
+                {info.fraudScore}%
+              </span>
+            </div>
+            <div className="text-sm">
+              <span className="text-slate-300">Risk: </span>
+              <span
+                className={`font-medium ${getFraudScoreColor(info.fraudScore)}`}
+              >
+                {info.riskLevel || "Unknown"}
+              </span>
+            </div>
+            {info.reasons && info.reasons.length > 0 && (
+              <div className="mt-2">
+                <span className="text-slate-400 text-xs">Reasons:</span>
+                <ul className="list-disc list-inside ml-2 text-xs text-slate-300">
+                  {info.reasons.map((reason, idx) => (
+                    <li key={idx}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="relative min-h-screen bg-black">
       <AnimatedBackground />
       <Navbar />
-      <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-16 max-w-7xl mx-auto">
+      <div className="relative z-10 px-4 sm:px-6 lg:px-8 py-24 max-w-7xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-12"
         >
-          <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-r from-yellow-500 to-amber-500 rounded-3xl shadow-2xl mb-6">
-            <FileSearch className="w-12 h-12 text-black" />
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-3xl shadow-2xl mb-6">
+            <FileSearch className="w-10 h-10 text-black" />
           </div>
-          {/* <h1 className="text-5xl font-extrabold text-white mb-3">
+          <h1 className="text-4xl font-bold text-white mb-4">
             KYC Admin Dashboard
-          </h1> */}
+          </h1>
           <p className="text-xl text-slate-300 max-w-2xl mx-auto">
-            Monitor and manage identity verification requests securely and in
-            real time.
+            Monitor and manage identity verification requests with detailed
+            fraud analysis
           </p>
         </motion.div>
 
@@ -93,121 +255,104 @@ export default function AdminPanel() {
           </motion.div>
         )}
 
-        {/* KYC Requests Table */}
-        <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm shadow-2xl">
-          <table className="w-full text-left border-separate border-spacing-y-6">
-            <thead className="text-sm text-yellow-300 uppercase bg-yellow-900/10 rounded-t-lg font-semibold">
-              <tr>
-                <th className="py-4 px-6">User</th>
-                {/* <th className="py-4 px-6">Documents</th> */}
-                <th className="py-4 px-6">OCR Data</th>
-                <th className="py-4 px-6">Fraud Score</th>
-                <th className="py-4 px-6">Status</th>
-                <th className="py-4 px-6">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-amber-400">
-                    Loading KYC requests...
-                  </td>
-                </tr>
-              ) : kycRequests.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-12 text-center text-slate-400 italic"
-                  >
-                    No KYC requests found
-                  </td>
-                </tr>
-              ) : (
-                kycRequests.map((req, i) => {
-                  const fraudScore =
-                    req.fraudScore ??
-                    req.verificationResult?.Aadhaar?.fraudScore ??
-                    req.verificationResult?.Pan?.fraudScore ??
-                    null;
+        {/* KYC Requests */}
+        <div className="space-y-6">
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-amber-400"></div>
+              <p className="text-amber-400 mt-4">Loading KYC requests...</p>
+            </div>
+          ) : kycRequests.length === 0 ? (
+            <div className="text-center py-12">
+              <FileSearch className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-400 text-lg">No KYC requests found</p>
+            </div>
+          ) : (
+            kycRequests.map((req, i) => (
+              <motion.div
+                key={req._id || req.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+                className="bg-slate-900/60 backdrop-blur-2xl border border-slate-800 rounded-2xl p-6 hover:border-amber-400/30 transition-all duration-300"
+              >
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                  {/* User Information */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-400 mb-3">
+                      User Information
+                    </h3>
+                    {renderUserInfo(req.userInfo)}
+                  </div>
 
-                  return (
-                    <motion.tr
-                      key={req._id || req.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      className="bg-black/30 backdrop-blur-md rounded-xl border border-slate-800 hover:border-yellow-500/30 transition-all duration-300 shadow-md"
-                    >
-                      {/* User */}
-                      <td className="py-4 px-6 text-yellow-200 font-semibold">
-                        {req.userInfo?.fullName ||
-                          req.userInfo?.email ||
-                          "Unknown"}
-                      </td>
+                  {/* Extracted Data */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-400 mb-3">
+                      Extracted Data
+                    </h3>
+                    <div className="max-h-48 overflow-y-auto">
+                      {renderExtractedData(req.extractedData)}
+                    </div>
+                  </div>
 
-                      {/* Documents */}
-                      {/* <td className="py-4 px-6 text-sm text-slate-300 italic">
-                        No documents available
-                      </td> */}
+                  {/* Fraud Analysis */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-400 mb-3">
+                      Fraud Analysis
+                    </h3>
+                    <div className="max-h-48 overflow-y-auto">
+                      {renderFraudInfo(req.fraudInfo)}
+                    </div>
+                  </div>
 
-                      {/* OCR Data */}
-                      <td className="py-4 px-6 max-w-sm overflow-x-auto text-xs text-yellow-300 font-mono whitespace-pre-wrap bg-black/40 p-3 rounded-lg border border-yellow-900">
-                        {JSON.stringify(req.extractedData || {}, null, 2)}
-                      </td>
+                  {/* Status & Actions */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-amber-400 mb-3">
+                      Status & Actions
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-slate-400 text-sm">
+                          Current Status:
+                        </span>
+                        <div
+                          className={`font-semibold capitalize ${getStatusColor(
+                            req.status
+                          )}`}
+                        >
+                          {req.status}
+                        </div>
+                      </div>
 
-                      {/* Fraud Score */}
-                      <td className="py-4 px-6 font-bold text-lg">
-                        {req.fraudInfo && (
-                          <div className="mt-2 text-amber-400">
-                            <ul className="ml-2 list-disc">
-                              {req.fraudInfo.map((info, index) => (
-                                <li key={index}>
-                                  {info.type}: {info.fraudScore} (
-                                  {info.riskLevel})
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-4 px-6 text-yellow-400 capitalize font-medium">
-                        {req.status}
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-4 px-6">
-                        {req.status === "pending" ? (
-                          <div className="flex space-x-3">
-                            <button
-                              onClick={() => handleAction(req._id, "approve")}
-                              className="px-4 py-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-full flex items-center shadow-lg text-sm font-semibold transition-all"
-                            >
-                              <ShieldCheck className="w-4 h-4 mr-2" />
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleAction(req._id, "reject")}
-                              className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white rounded-full flex items-center shadow-lg text-sm font-semibold transition-all"
-                            >
-                              <ShieldX className="w-4 h-4 mr-2" />
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center text-amber-400">
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            No actions
-                          </div>
-                        )}
-                      </td>
-                    </motion.tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      {req.status === "pending" ? (
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => handleAction(req._id, "approve")}
+                            className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg flex items-center justify-center transition-colors"
+                          >
+                            <ShieldCheck className="w-4 h-4 mr-2" />
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleAction(req._id, "reject")}
+                            className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center transition-colors"
+                          >
+                            <ShieldX className="w-4 h-4 mr-2" />
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center text-slate-400">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          <span className="text-sm">Action completed</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
         </div>
       </div>
     </div>

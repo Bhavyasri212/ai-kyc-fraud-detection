@@ -8,12 +8,13 @@ import { execFile } from "child_process";
 import path from "path";
 import { extractKYCDetails } from "../controllers/docController.js";
 import KYCRequest from "../models/kyc.js";
-import crypto from "crypto"; // For hashing
+import crypto from "crypto";
 import { normalize } from "../utils/normalize.js";
+import FraudAlert from "../models/FraudAlert.js";
+import AuditLog from "../models/AuditLog.js"; // ✅ Add this
 
-const hashValue = (value) => {
-  return crypto.createHash("sha256").update(value).digest("hex");
-};
+const hashValue = (value) =>
+  crypto.createHash("sha256").update(value).digest("hex");
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
@@ -44,8 +45,7 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
     const aadhaarNumber = extractedData?.aadhaar || "";
     const nameOnDoc = extractedData?.name || "";
 
-    // Step 3: OPTIONAL - Real duplicate check (replace logic with DB)
-    // ✅ Normalize input before hashing using shared utility
+    // Step 3: Duplicate check
     const rawAadhaar =
       typeof extractedData.aadhaar === "string"
         ? extractedData.aadhaar
@@ -59,35 +59,19 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
     const aadhaar = normalize(rawAadhaar);
     const pan = normalize(rawPan);
 
-    // Compute hashes
     const aadhaarHash = aadhaar ? hashValue(aadhaar) : null;
     const panHash = pan ? hashValue(pan) : null;
 
-    // 🐞 Log for debugging
-    console.log("Aadhaar normalized:", aadhaar);
-    console.log("PAN normalized:", pan);
-    console.log("Aadhaar hash:", aadhaarHash);
-    console.log("PAN hash:", panHash);
-
-    // 🔍 Duplicate check query
     const orQuery = [
       aadhaarHash ? { aadhaarHash } : null,
       panHash ? { panHash } : null,
     ].filter(Boolean);
-
-    console.log("Duplicate query:", orQuery);
-
     const duplicate = await KYCRequest.findOne({ $or: orQuery });
-
-    console.log("Duplicate found:", duplicate);
-
     const isDuplicate = !!duplicate;
-    console.log("Is duplicate:", isDuplicate);
 
-    // 📝 Mark in extracted data for downstream use
     extractedData.is_duplicate = isDuplicate;
 
-    // Step 4: Name similarity check
+    // Step 4: Name similarity
     let nameSimilarityScore = 1.0;
     let reason = [];
 
@@ -100,7 +84,7 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
       reason.push("Missing name for comparison");
     }
 
-    // Step 5: Prepare fraud check input and encode it as base64
+    // Step 5: Run fraud scoring
     const fraudInput = {
       is_duplicate: isDuplicate,
       aadhaar_number: aadhaarNumber,
@@ -111,53 +95,88 @@ router.post("/verify-doc", upload.single("documentImage"), async (req, res) => {
       type: documentType,
     };
 
-    const fraudInputString = JSON.stringify(fraudInput);
-    const fraudInputBase64 = Buffer.from(fraudInputString).toString("base64");
+    const fraudInputBase64 = Buffer.from(JSON.stringify(fraudInput)).toString(
+      "base64"
+    );
 
     const pythonPath =
-      "C:\\Users\\sdgeryuj\\AppData\\Local\\Programs\\Python\\Python313\\python.exe"; // Adjust if needed
+      "C:\\Users\\sdgeryuj\\AppData\\Local\\Programs\\Python\\Python313\\python.exe";
     const scriptPath = path.resolve("scripts/fraudScoring.py");
-
-    // Pass base64-encoded JSON and image path to Python
     const pythonArgs = [scriptPath, fraudInputBase64, imageFile.path];
 
     execFile(pythonPath, pythonArgs, (error, stdout, stderr) => {
-      console.log("Python stdout:", stdout);
-      console.log("Python stderr:", stderr);
-
-      fs.unlink(imageFile.path, (err) => {
-        if (err) console.error("Failed to delete uploaded file:", err);
-      });
-
-      if (error) {
-        console.error("Python script error:", stderr);
-        return res.status(500).json({ error: "Fraud scoring failed" });
-      }
-      try {
-        const fraudResult = JSON.parse(stdout);
-        const finalRiskLevel = fraudResult.risk_level;
-        const fraudScore = fraudResult.fraud_score;
-        const fraudReasons = fraudResult.reasons;
-
-        const valid = fraudScore <= 70;
-        const status = valid ? "Valid Document" : "Invalid Document";
-
-        return res.json({
-          id: uuidv4(),
-          timestamp: new Date(),
-          valid,
-          status,
-          fraudScore,
-          riskLevel: finalRiskLevel,
-          reason: [...reason, ...fraudReasons],
-          extractedData,
-          ocrTextSnippet: rawText.slice(0, 200),
-          isDuplicate,
+      (async () => {
+        fs.unlink(imageFile.path, (err) => {
+          if (err) console.error("Failed to delete uploaded file:", err);
         });
-      } catch (parseError) {
-        console.error("Error parsing Python output:", parseError);
-        return res.status(500).json({ error: "Invalid Python output" });
-      }
+
+        if (error) {
+          console.error("Python script error:", stderr);
+          return res.status(500).json({ error: "Fraud scoring failed" });
+        }
+
+        try {
+          const fraudResult = JSON.parse(stdout);
+          const finalRiskLevel = fraudResult.risk_level;
+          const fraudScore = fraudResult.fraud_score;
+          const fraudReasons = fraudResult.reasons;
+
+          const valid = fraudScore <= 70;
+          const status = valid ? "Valid Document" : "Invalid Document";
+          const fraudReasonList = [...reason, ...fraudReasons];
+
+          // ✅ Create FraudAlert if needed
+          if (finalRiskLevel !== "Low") {
+            try {
+              await FraudAlert.create({
+                caseId: `FR-${Date.now()}`,
+                riskLevel: finalRiskLevel,
+                reason: fraudReasonList.join(", "),
+                documentType,
+                userId: req.user?.id || "anonymous", // Fallback
+                confidence: Math.round(100 - fraudScore),
+              });
+            } catch (alertError) {
+              console.error("Failed to create FraudAlert:", alertError);
+            }
+          }
+
+          // ✅ Create Audit Log
+          try {
+            await AuditLog.create({
+              user: req.user?.name || "System",
+              action: "Fraud Verification",
+              status:
+                finalRiskLevel === "High"
+                  ? "warning"
+                  : valid
+                  ? "success"
+                  : "error",
+              details: `Fraud Score: ${fraudScore}% | Risk: ${finalRiskLevel}`,
+              ipAddress: req.ip || "Internal",
+            });
+          } catch (auditErr) {
+            console.error("Audit log failed:", auditErr);
+          }
+
+          // ✅ Final Response
+          return res.json({
+            id: uuidv4(),
+            timestamp: new Date(),
+            valid,
+            status,
+            fraudScore,
+            riskLevel: finalRiskLevel,
+            reason: fraudReasonList,
+            extractedData,
+            ocrTextSnippet: rawText.slice(0, 200),
+            isDuplicate,
+          });
+        } catch (parseError) {
+          console.error("Error parsing Python output:", parseError);
+          return res.status(500).json({ error: "Invalid Python output" });
+        }
+      })();
     });
   } catch (error) {
     console.error("Error processing document:", error);

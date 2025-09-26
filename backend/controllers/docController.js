@@ -289,3 +289,28 @@ export const getUserDocs = async (req, res) => {
     res.status(500).json({ error: "Failed to fetch documents" });
   }
 };
+
+// DELETE /api/docs/:id
+// DELETE /api/docs/:id
+export const deleteDoc = async (req, res) => {
+  try {
+    const docId = req.params.id;
+
+    // Find and delete the document by ID using correct model
+    const deleted = await Doc.findByIdAndDelete(docId);
+
+    if (!deleted) {
+      return res.status(404).json({ error: "Document not found" });
+    }
+
+    // Optionally delete the physical file too
+    if (fs.existsSync(deleted.filePath)) {
+      fs.unlinkSync(deleted.filePath);
+    }
+
+    res.json({ success: true, message: "Document deleted successfully" });
+  } catch (error) {
+    console.error("❌ Error deleting document:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+};

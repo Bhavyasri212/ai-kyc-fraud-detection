@@ -61,7 +61,7 @@ def detect_document_tampering(image_path):
         image = cv2.GaussianBlur(image, (5, 5), 0)
 
         # Edge detection with higher threshold to ignore text noise
-        edges = cv2.Canny(image, 200, 300)
+        edges = cv2.Canny(image, 250, 300)
 
         # Use contour area instead of just count
         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
